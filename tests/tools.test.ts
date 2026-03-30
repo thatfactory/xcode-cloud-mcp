@@ -164,6 +164,57 @@ test('registered tools expose product, workflow, and build data', async () => {
     },
   };
 
+  const runningBuildRun: CiBuildRun = {
+    id: 'build-2',
+    type: 'ciBuildRuns',
+    attributes: {
+      number: 43,
+      createdDate: '2026-03-30T12:30:00Z',
+      startedDate: '2026-03-30T12:31:00Z',
+      executionProgress: 'RUNNING',
+      isPullRequestBuild: true,
+      issueCounts: {
+        analyzerWarnings: 0,
+        errors: 0,
+        testFailures: 0,
+        warnings: 0,
+      },
+    },
+    relationships: {
+      workflow: {
+        data: {
+          type: 'ciWorkflows',
+          id: 'workflow-1',
+        },
+      },
+    },
+  };
+
+  const pendingBuildRun: CiBuildRun = {
+    id: 'build-3',
+    type: 'ciBuildRuns',
+    attributes: {
+      number: 44,
+      createdDate: '2026-03-30T12:45:00Z',
+      executionProgress: 'PENDING',
+      isPullRequestBuild: true,
+      issueCounts: {
+        analyzerWarnings: 0,
+        errors: 0,
+        testFailures: 0,
+        warnings: 0,
+      },
+    },
+    relationships: {
+      workflow: {
+        data: {
+          type: 'ciWorkflows',
+          id: 'workflow-1',
+        },
+      },
+    },
+  };
+
   const logArtifact = createArtifact('artifact-1', 'build.log', 'LOG');
   const screenshotArtifact = createArtifact(
     'artifact-2',
@@ -195,7 +246,7 @@ test('registered tools expose product, workflow, and build data', async () => {
     },
     builds: {
       getById: async () => buildRun,
-      listForWorkflow: async () => [buildRun],
+      listForWorkflow: async () => [buildRun, runningBuildRun, pendingBuildRun],
       getActions: async () => [buildAction],
     },
     artifacts: {
@@ -240,6 +291,12 @@ test('registered tools expose product, workflow, and build data', async () => {
   const buildsPayload = parsePayload(
     await listBuildRuns!({ workflowId: 'workflow-1' }),
   );
+  const runningBuildsPayload = parsePayload(
+    await listBuildRuns!({ workflowId: 'workflow-1', status: 'running' }),
+  );
+  const pendingBuildsPayload = parsePayload(
+    await listBuildRuns!({ workflowId: 'workflow-1', status: 'pending' }),
+  );
   const workflowDetailsPayload = parsePayload(
     await getWorkflowDetails!({ workflowId: 'workflow-1' }),
   );
@@ -267,7 +324,11 @@ test('registered tools expose product, workflow, and build data', async () => {
   const cleanupPayload = parsePayload(await cleanupSavedLogs!({ maxAgeHours: 1 }));
 
   assert.equal(productsPayload.products[0].id, 'product-1');
-  assert.equal(buildsPayload.buildRuns[0].number, 42);
+  assert.equal(buildsPayload.buildRuns[0].number, 44);
+  assert.equal(runningBuildsPayload.buildRuns.length, 1);
+  assert.equal(runningBuildsPayload.buildRuns[0].executionProgress, 'RUNNING');
+  assert.equal(pendingBuildsPayload.buildRuns.length, 1);
+  assert.equal(pendingBuildsPayload.buildRuns[0].executionProgress, 'PENDING');
   assert.equal(workflowDetailsPayload.workflow.general.isEnabled, true);
   assert.equal(
     workflowDetailsPayload.workflow.environment.repository.repositoryName,

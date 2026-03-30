@@ -9,7 +9,7 @@ import {
 } from '../utils/build-locator.js';
 import { errorResponse, jsonResponse } from '../utils/tool-response.js';
 
-type BuildRunStatusFilter = 'all' | 'failed' | 'succeeded';
+type BuildRunStatusFilter = 'all' | 'failed' | 'pending' | 'running' | 'succeeded';
 
 /**
  * Register build run listing tools.
@@ -26,7 +26,7 @@ export function registerBuildRunTools(
       inputSchema: {
         workflowId: z.string(),
         limit: z.number().int().positive().max(200).optional(),
-        status: z.enum(['all', 'failed', 'succeeded']).optional(),
+        status: z.enum(['all', 'failed', 'pending', 'running', 'succeeded']).optional(),
       },
     },
     async ({
@@ -81,6 +81,18 @@ function filterBuildRuns(
   if (status === 'failed') {
     return buildRuns.filter((buildRun) =>
       isFailureStatus(buildRun.attributes.completionStatus),
+    );
+  }
+
+  if (status === 'pending') {
+    return buildRuns.filter(
+      (buildRun) => buildRun.attributes.executionProgress === 'PENDING',
+    );
+  }
+
+  if (status === 'running') {
+    return buildRuns.filter(
+      (buildRun) => buildRun.attributes.executionProgress === 'RUNNING',
     );
   }
 

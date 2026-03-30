@@ -12,20 +12,23 @@ Minimal MCP server for discovering Xcode Cloud products and workflows, then retr
 
 ## Features
 
-- Discover Xcode Cloud products with `list_products`.
-- Discover workflows for a product with `list_workflows`.
-- Retrieve workflow configuration with `get_workflow_details`.
-- List recent workflow runs with `list_build_runs`.
-- Retrieve build issue counts with `get_build_issues`.
-- Retrieve and summarize text-like build logs with `get_build_logs`.
-- Materialize build logs into a local temp directory with `materialize_build_logs`.
-- Save extracted logs to a local temporary directory and return file paths for agent-side inspection.
-- Retrieve test summaries with `get_test_results`.
-- Retrieve only detected failed tests with `get_failed_tests`.
-- Retrieve screenshots, videos, result bundles, and test products with `get_test_artifacts`.
-- Clean up saved local log directories with `cleanup_saved_logs`.
+| Feature | Tool(s) | Example use | Example return |
+| --- | --- | --- | --- |
+| Discover products | `list_products` | "Show me the Xcode Cloud products available in this account." | `Demo App`, `productType: APP`, `createdDate: 2026-03-30T10:00:00Z` |
+| Discover workflows | `list_workflows` | "List the workflows for product `def456`." | `Feature Branch`, `description`, `isEnabled: true`, `containerFilePath: Chauffeur.xcodeproj` |
+| Inspect workflow configuration | `get_workflow_details` | "Show me the full workflow details for `abc123`, including environment and actions." | `general`, `environment`, `startConditions`, `actions`, `postActions` |
+| Monitor running or recent builds | `list_build_runs` | "Show me the running builds for workflow `abc123` so I can monitor them." | `number: 93`, `executionProgress: RUNNING`, `completionStatus: null`, `startedDate: ...` |
+| See build health quickly | `get_build_issues` | "What went wrong in the latest failing build for workflow `abc123`?" | `issueCounts: { errors: 1, testFailures: 3, warnings: 2 }` |
+| Read compact build log summaries | `get_build_logs` | "Retrieve logs of build `81` and summarize the failure." | `failedTests`, `highlights`, `excerpt`, `savedLogsDirectory` |
+| Materialize logs for local grep | `materialize_build_logs` | "Download the logs for build `81` so I can grep them locally." | `savedLogsDirectory: /var/folders/...`, `savedLogs: [...]` |
+| Summarize test outcomes | `get_test_results` | "Summarize the test results for the latest failing build." | `testFailures`, `issueCounts`, `summary` |
+| Jump straight to failed tests | `get_failed_tests` | "What tests failed in build `81`?" | `displayExpiryDateReturnsFormattedDateWhenExpiryDateExists()`, assertion message, saved log paths |
+| Retrieve UI test artifacts | `get_test_artifacts` | "Show me the screenshots and videos from the latest failing UI test run." | `screenshots`, `videos`, `resultBundles`, `downloadUrl` |
+| Clean up local temp files | `cleanup_saved_logs` | "Remove saved logs older than 24 hours." | `removedDirectories: [...]`, `retainedDirectories: [...]` |
 
 Build lookup is workflow-scoped. Retrieval tools accept a direct `buildRunId`, or a `workflowId` plus `buildNumber`, or a `workflowId` plus `buildSelector: "latest" | "latestFailing"`.
+
+`list_build_runs` also supports `status: "all" | "failed" | "succeeded" | "running" | "pending"`, so agents can poll active workflows without post-processing every run locally.
 
 ## Requirements
 
