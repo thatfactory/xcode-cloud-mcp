@@ -8,7 +8,11 @@ import {
 } from '../utils/build-locator.js';
 import { collectBuildRunArtifacts } from '../utils/build-artifacts.js';
 import { summarizeLogTexts } from '../utils/log-analysis.js';
-import { storeLogArtifacts } from '../utils/log-storage.js';
+import {
+  cleanupSavedLogs,
+  removeSavedLogsForBuildRun,
+  storeLogArtifacts,
+} from '../utils/log-storage.js';
 import { errorResponse, jsonResponse } from '../utils/tool-response.js';
 
 interface BuildLookupInput {
@@ -82,6 +86,68 @@ export function registerResultTools(
           highlights: logSummary.highlights,
           excerpt: logSummary.excerpt,
         });
+      } catch (error) {
+        return errorResponse(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    'materialize_build_logs',
+    {
+      description:
+        'Resolve a build, download and extract text-like log artifacts into a local temporary directory, and return saved file paths for grep or cat based investigation.',
+      inputSchema: buildLookupSchema(),
+    },
+    async (input: BuildLookupInput) => {
+      try {
+        const buildRun = await resolveBuildLocator(client, input);
+        const groupedArtifacts = await collectBuildRunArtifacts(client, buildRun.id);
+        const storedLogs = await storeLogArtifacts(
+          client,
+          buildRun.id,
+          groupedArtifacts.logs,
+        );
+
+        return jsonResponse({
+          buildRun: formatBuildRun(buildRun),
+          artifacts: groupedArtifacts.logs.map(formatArtifact),
+          savedLogsDirectory: storedLogs.directoryPath,
+          savedLogs: storedLogs.savedLogFiles,
+        });
+      } catch (error) {
+        return errorResponse(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    'cleanup_saved_logs',
+    {
+      description:
+        'Remove saved local log directories either for one build run or for all directories older than a retention window.',
+      inputSchema: {
+        buildRunId: z.string().optional(),
+        maxAgeHours: z.number().positive().max(24 * 30).optional(),
+      },
+    },
+    async ({
+      buildRunId,
+      maxAgeHours,
+    }: {
+      buildRunId?: string;
+      maxAgeHours?: number;
+    }) => {
+      try {
+        if (buildRunId) {
+          const cleanupResult = await removeSavedLogsForBuildRun(buildRunId);
+
+          return jsonResponse(cleanupResult);
+        }
+
+        const cleanupResult = await cleanupSavedLogs({ maxAgeHours });
+
+        return jsonResponse(cleanupResult);
       } catch (error) {
         return errorResponse(error);
       }

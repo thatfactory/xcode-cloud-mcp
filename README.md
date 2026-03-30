@@ -17,9 +17,12 @@ Minimal MCP server for discovering Xcode Cloud products and workflows, then retr
 - List recent workflow runs with `list_build_runs`.
 - Retrieve build issue counts with `get_build_issues`.
 - Retrieve and summarize text-like build logs with `get_build_logs`.
+- Materialize build logs into a local temp directory with `materialize_build_logs`.
 - Save extracted logs to a local temporary directory and return file paths for agent-side inspection.
 - Retrieve test summaries with `get_test_results`.
+- Retrieve only detected failed tests with `get_failed_tests`.
 - Retrieve screenshots, videos, result bundles, and test products with `get_test_artifacts`.
+- Clean up saved local log directories with `cleanup_saved_logs`.
 
 Build lookup is workflow-scoped. Retrieval tools accept a direct `buildRunId`, or a `workflowId` plus `buildNumber`, or a `workflowId` plus `buildSelector: "latest" | "latestFailing"`.
 
@@ -71,8 +74,11 @@ codex mcp add xcode-cloud \
 - `list_build_runs(workflowId, limit?, status?)`
 - `get_build_issues(buildRunId? workflowId? buildNumber? buildSelector?)`
 - `get_build_logs(buildRunId? workflowId? buildNumber? buildSelector?, maxCharacters?)`
+- `materialize_build_logs(buildRunId? workflowId? buildNumber? buildSelector?)`
 - `get_test_results(buildRunId? workflowId? buildNumber? buildSelector?)`
+- `get_failed_tests(buildRunId? workflowId? buildNumber? buildSelector?)`
 - `get_test_artifacts(buildRunId? workflowId? buildNumber? buildSelector?)`
+- `cleanup_saved_logs(buildRunId?, maxAgeHours?)`
 
 ## Log Retrieval Behavior
 
@@ -82,6 +88,13 @@ codex mcp add xcode-cloud \
 - it returns `savedLogsDirectory` and `savedLogs` so local agents can inspect the extracted files with `rg`, `grep`, or `cat`
 - it returns a compact `failedTests` summary, `highlights`, and a capped `excerpt`
 - even if a caller passes a very large `maxCharacters`, the inline excerpt is clamped to avoid oversized MCP responses
+
+Recommended agent workflow:
+
+1. Call `get_failed_tests` or `get_build_logs`.
+2. Read `savedLogsDirectory`.
+3. Use `rg` inside that directory to inspect the exact failing test or assertion.
+4. If needed, call `cleanup_saved_logs` when the investigation is done.
 
 Temporary logs are written under the system temp directory in a path like:
 
@@ -94,8 +107,8 @@ On macOS this typically resolves to a path under `/var/folders/.../T/`.
 Cleanup policy:
 
 - each new call for the same `buildRunId` deletes and recreates that build-specific temp directory first
-- older build directories are not explicitly garbage-collected by the server yet
-- they are left in the system temp area, where the OS may eventually clean them up
+- older build directories are pruned automatically when they are older than 24 hours
+- you can also call `cleanup_saved_logs` directly for one `buildRunId` or for all directories older than a chosen retention window
 
 ## Example Prompts
 
@@ -105,6 +118,10 @@ Retrieve logs of the latest failing build for workflow abc123.
 
 ```text
 Retrieve logs of build 81, then inspect the returned savedLogsDirectory and grep for Expectation failed.
+```
+
+```text
+Get the failed tests for build 81, then open the saved logs directory and inspect the failing test in context.
 ```
 
 ```text

@@ -76,6 +76,41 @@ export function registerTestTools(
   );
 
   server.registerTool(
+    'get_failed_tests',
+    {
+      description:
+        'Resolve a build, ensure logs are materialized locally, and return only the detected failed tests with their assertion messages when available.',
+      inputSchema: buildLookupSchema(),
+    },
+    async (input: BuildLookupInput) => {
+      try {
+        const buildRun = await resolveBuildLocator(client, input);
+        const groupedArtifacts = await collectBuildRunArtifacts(client, buildRun.id);
+        const storedLogs = await storeLogArtifacts(
+          client,
+          buildRun.id,
+          groupedArtifacts.logs,
+        );
+        const logSummary = summarizeLogTexts(storedLogs.parsedLogTexts, 1500);
+
+        return jsonResponse({
+          buildRun: {
+            id: buildRun.id,
+            number: buildRun.attributes.number,
+            workflowId: buildRun.relationships?.workflow?.data.id,
+            completionStatus: buildRun.attributes.completionStatus,
+          },
+          savedLogsDirectory: storedLogs.directoryPath,
+          savedLogs: storedLogs.savedLogFiles,
+          failedTests: logSummary.failedTests,
+        });
+      } catch (error) {
+        return errorResponse(error);
+      }
+    },
+  );
+
+  server.registerTool(
     'get_test_artifacts',
     {
       description:

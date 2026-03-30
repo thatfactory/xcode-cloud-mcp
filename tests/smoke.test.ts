@@ -32,13 +32,16 @@ test('server starts over stdio and exposes the expected tools', async () => {
   const toolNames = tools.tools.map((tool) => tool.name).sort();
 
   assert.deepEqual(toolNames, [
+    'cleanup_saved_logs',
     'get_build_issues',
     'get_build_logs',
+    'get_failed_tests',
     'get_test_artifacts',
     'get_test_results',
     'list_build_runs',
     'list_products',
     'list_workflows',
+    'materialize_build_logs',
   ]);
 
   await client.close();

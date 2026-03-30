@@ -134,12 +134,18 @@ test('registered tools expose product, workflow, and build data', async () => {
   const listProducts = registry.get('list_products');
   const listBuildRuns = registry.get('list_build_runs');
   const getBuildLogs = registry.get('get_build_logs');
+  const materializeBuildLogs = registry.get('materialize_build_logs');
+  const getFailedTests = registry.get('get_failed_tests');
   const getTestArtifacts = registry.get('get_test_artifacts');
+  const cleanupSavedLogs = registry.get('cleanup_saved_logs');
 
   assert.ok(listProducts);
   assert.ok(listBuildRuns);
   assert.ok(getBuildLogs);
+  assert.ok(materializeBuildLogs);
+  assert.ok(getFailedTests);
   assert.ok(getTestArtifacts);
+  assert.ok(cleanupSavedLogs);
 
   const productsPayload = parsePayload(await listProducts!({}));
   const buildsPayload = parsePayload(
@@ -148,17 +154,33 @@ test('registered tools expose product, workflow, and build data', async () => {
   const logsPayload = parsePayload(
     await getBuildLogs!({ workflowId: 'workflow-1', buildSelector: 'latest' }),
   );
+  const materializedLogsPayload = parsePayload(
+    await materializeBuildLogs!({
+      workflowId: 'workflow-1',
+      buildSelector: 'latest',
+    }),
+  );
+  const failedTestsPayload = parsePayload(
+    await getFailedTests!({
+      workflowId: 'workflow-1',
+      buildSelector: 'latest',
+    }),
+  );
   const artifactsPayload = parsePayload(
     await getTestArtifacts!({
       workflowId: 'workflow-1',
       buildSelector: 'latest',
     }),
   );
+  const cleanupPayload = parsePayload(await cleanupSavedLogs!({ maxAgeHours: 1 }));
 
   assert.equal(productsPayload.products[0].id, 'product-1');
   assert.equal(buildsPayload.buildRuns[0].number, 42);
   assert.equal(logsPayload.summary.errorHighlightCount, 1);
+  assert.equal(Array.isArray(materializedLogsPayload.savedLogs), true);
+  assert.equal(Array.isArray(failedTestsPayload.failedTests), true);
   assert.equal(artifactsPayload.screenshots[0].id, 'artifact-2');
+  assert.equal(Array.isArray(cleanupPayload.removedDirectories), true);
 });
 
 function parsePayload(result: {
