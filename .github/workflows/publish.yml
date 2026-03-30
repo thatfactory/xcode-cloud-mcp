@@ -1,0 +1,54 @@
+---
+name: Publish to npm
+
+on:
+  release:
+    types:
+      - published
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.release.tag_name || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    name: Publish Package
+    runs-on: [self-hosted, macOS]
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v6
+        with:
+          clean: true
+          ref: ${{ github.event.release.tag_name || github.ref }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          registry-url: https://registry.npmjs.org
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Run Tests
+        run: npm test
+
+      - name: Verify Release Tag Matches package.json
+        if: github.event_name == 'release'
+        run: |
+          PACKAGE_VERSION="$(node -p "require('./package.json').version")"
+          RELEASE_TAG="${{ github.event.release.tag_name }}"
+
+          if [ "$PACKAGE_VERSION" != "$RELEASE_TAG" ]; then
+            echo "Release tag $RELEASE_TAG does not match package.json version $PACKAGE_VERSION"
+            exit 1
+          fi
+
+      - name: Publish Package
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
