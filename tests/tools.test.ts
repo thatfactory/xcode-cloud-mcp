@@ -1,7 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import type { AppStoreConnectClient } from '../src/api/client.js';
-import type { CiArtifact, CiBuildRun, CiProduct, CiWorkflow } from '../src/api/types.js';
+import type {
+  CiArtifact,
+  CiBuildAction,
+  CiBuildRun,
+  CiProduct,
+  CiWorkflow,
+} from '../src/api/types.js';
 import { registerBuildRunTools } from '../src/tools/build-runs.js';
 import { registerDiscoveryTools } from '../src/tools/discovery.js';
 import { registerResultTools } from '../src/tools/results.js';
@@ -81,6 +87,17 @@ test('registered tools expose product, workflow, and build data', async () => {
     'screenshot.png',
     'SCREENSHOT',
   );
+  const buildAction: CiBuildAction = {
+    id: 'action-1',
+    type: 'ciBuildActions',
+    attributes: {
+      actionType: 'TEST',
+      executionProgress: 'COMPLETE',
+      name: 'Tests',
+      completionStatus: 'FAILED',
+      isRequiredToPass: true,
+    },
+  };
 
   const client = {
     products: {
@@ -92,9 +109,10 @@ test('registered tools expose product, workflow, and build data', async () => {
     builds: {
       getById: async () => buildRun,
       listForWorkflow: async () => [buildRun],
+      getActions: async () => [buildAction],
     },
     artifacts: {
-      listForBuildRun: async () => ({
+      listForBuildAction: async () => ({
         logs: [logArtifact],
         archives: [],
         screenshots: [screenshotArtifact],

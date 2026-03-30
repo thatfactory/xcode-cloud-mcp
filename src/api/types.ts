@@ -93,8 +93,27 @@ export interface CiBuildRun {
   };
 }
 
+/**
+ * Xcode Cloud build action.
+ */
+export interface CiBuildAction {
+  type: 'ciBuildActions';
+  id: string;
+  attributes: {
+    actionType: 'BUILD' | 'TEST' | 'ANALYZE' | 'ARCHIVE';
+    issueCounts?: CiIssueCounts | null;
+    executionProgress: 'PENDING' | 'RUNNING' | 'COMPLETE';
+    name: string;
+    startedDate?: string;
+    completionStatus?: 'SUCCEEDED' | 'FAILED' | 'ERRORED' | 'CANCELED' | 'SKIPPED';
+    finishedDate?: string;
+    isRequiredToPass?: boolean;
+  };
+}
+
 export type CiArtifactFileType =
   | 'LOG'
+  | 'LOG_BUNDLE'
   | 'ARCHIVE'
   | 'XCODEBUILD_ARCHIVE'
   | 'RESULT_BUNDLE'

@@ -6,6 +6,7 @@ import {
   resolveBuildLocator,
   type BuildSelector,
 } from '../utils/build-locator.js';
+import { collectBuildRunArtifacts } from '../utils/build-artifacts.js';
 import {
   extractTextFromArtifact,
   summarizeLogTexts,
@@ -60,7 +61,7 @@ export function registerResultTools(
     async (input: BuildLookupInput & { maxCharacters?: number }) => {
       try {
         const buildRun = await resolveBuildLocator(client, input);
-        const groupedArtifacts = await client.artifacts.listForBuildRun(buildRun.id);
+        const groupedArtifacts = await collectBuildRunArtifacts(client, buildRun.id);
         const maxCharacters = input.maxCharacters ?? 8000;
         const parsedLogTexts = await downloadLogTexts(
           client,

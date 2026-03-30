@@ -6,6 +6,7 @@ import {
   resolveBuildLocator,
   type BuildSelector,
 } from '../utils/build-locator.js';
+import { collectBuildRunArtifacts } from '../utils/build-artifacts.js';
 import {
   extractTextFromArtifact,
   summarizeLogTexts,
@@ -36,7 +37,7 @@ export function registerTestTools(
     async (input: BuildLookupInput) => {
       try {
         const buildRun = await resolveBuildLocator(client, input);
-        const groupedArtifacts = await client.artifacts.listForBuildRun(buildRun.id);
+        const groupedArtifacts = await collectBuildRunArtifacts(client, buildRun.id);
         const parsedLogTexts = await downloadLogTexts(
           client,
           groupedArtifacts.logs,
@@ -80,7 +81,7 @@ export function registerTestTools(
     async (input: BuildLookupInput) => {
       try {
         const buildRun = await resolveBuildLocator(client, input);
-        const groupedArtifacts = await client.artifacts.listForBuildRun(buildRun.id);
+        const groupedArtifacts = await collectBuildRunArtifacts(client, buildRun.id);
 
         return jsonResponse({
           buildRun: {

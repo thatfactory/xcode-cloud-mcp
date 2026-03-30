@@ -1,5 +1,5 @@
 import { BaseAPIClient } from '../base-client.js';
-import type { CiBuildRun } from '../types.js';
+import type { CiBuildAction, CiBuildRun } from '../types.js';
 
 /**
  * Build run endpoints.
@@ -22,6 +22,17 @@ export class BuildsClient extends BaseAPIClient {
       {
         ...(limit ? { limit: String(limit) } : {}),
       },
+    );
+
+    return response.data;
+  }
+
+  /**
+   * List build actions for a build run.
+   */
+  async getActions(buildRunId: string): Promise<CiBuildAction[]> {
+    const response = await this.get<CiBuildAction[]>(
+      `/v1/ciBuildRuns/${buildRunId}/actions`,
     );
 
     return response.data;
