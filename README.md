@@ -18,6 +18,10 @@ Minimal MCP server for discovering Xcode Cloud products and workflows, then retr
 | Discover workflows | `list_workflows` | "List the workflows for product `def456`." | `Feature Branch`, `description`, `isEnabled: true`, `containerFilePath: Chauffeur.xcodeproj` |
 | Inspect workflow configuration | `get_workflow_details` | "Show me the full workflow details for `abc123`, including environment and actions." | `general`, `environment`, `startConditions`, `actions`, `postActions` |
 | Monitor running or recent builds | `list_build_runs` | "Show me the running builds for workflow `abc123` so I can monitor them." | `number: 93`, `executionProgress: RUNNING`, `completionStatus: null`, `startedDate: ...` |
+| Enable or disable a workflow | `set_workflow_enabled` | "Disable workflow `abc123` while we are testing new settings." | `operation.type: set_workflow_enabled`, `workflow.general.isEnabled: false` |
+| Update name, description, or clean mode | `update_workflow_general` | "Rename workflow `abc123` to `Feature Branch v2` and adjust its description." | `changedFields: [name, description]`, updated `workflow.general` |
+| Update start conditions explicitly | `update_workflow_start_conditions` | "Change workflow `abc123` so pull-request builds no longer auto-cancel." | updated `workflow.startConditions.pullRequest.autoCancel: false` |
+| Replace the workflow action list | `update_workflow_actions` | "Remove the archive action from workflow `abc123`, then add it back once the experiment is done." | `actionCount: 4` after removal, then `actionCount: 5` after restore |
 | See build health quickly | `get_build_issues` | "What went wrong in the latest failing build for workflow `abc123`?" | `issueCounts: { errors: 1, testFailures: 3, warnings: 2 }` |
 | Read compact build log summaries | `get_build_logs` | "Retrieve logs of build `81` and summarize the failure." | `failedTests`, `highlights`, `excerpt`, `savedLogsDirectory` |
 | Materialize logs for local grep | `materialize_build_logs` | "Download the logs for build `81` so I can grep them locally." | `savedLogsDirectory: /var/folders/...`, `savedLogs: [...]` |
@@ -77,6 +81,10 @@ codex mcp add xcode-cloud \
 - `list_workflows(productId, limit?)`
 - `get_workflow_details(workflowId)`
 - `list_build_runs(workflowId, limit?, status?)`
+- `set_workflow_enabled(workflowId, enabled)`
+- `update_workflow_general(workflowId, name?, description?, clean?)`
+- `update_workflow_start_conditions(workflowId, branchStartCondition?, manualBranchStartCondition?, pullRequestStartCondition?, manualPullRequestStartCondition?, scheduledStartCondition?, tagStartCondition?, manualTagStartCondition?)`
+- `update_workflow_actions(workflowId, actions)`
 - `get_build_issues(buildRunId? workflowId? buildNumber? buildSelector?)`
 - `get_build_logs(buildRunId? workflowId? buildNumber? buildSelector?, maxCharacters?)`
 - `materialize_build_logs(buildRunId? workflowId? buildNumber? buildSelector?)`
@@ -145,6 +153,10 @@ List the workflows for product def456 and then summarize the latest build.
 Show me the full workflow details for workflow abc123, including environment, start conditions, actions, and whether it is enabled.
 ```
 
+```text
+Disable workflow abc123, remove the archive action, then restore the original action list after the experiment.
+```
+
 ## Workflow Details Behavior
 
 `get_workflow_details` returns the live workflow configuration exposed by App Store Connect, grouped into:
@@ -160,6 +172,21 @@ Notes:
 - `environment` includes repository, `xcodeVersion`, and `macOsVersion` when App Store Connect returns them.
 - `actions` includes action type, scheme, platform, destination, required-to-pass state, and test-plan details when present.
 - `postActions` is currently returned as an empty array with a note because the App Store Connect workflow payload does not expose separate post-actions in the observed API response.
+
+## Workflow Update Behavior
+
+The workflow update tools are intentionally explicit:
+
+- `set_workflow_enabled` only toggles `isEnabled`
+- `update_workflow_general` only changes `name`, `description`, and `clean`
+- `update_workflow_start_conditions` only changes the start-condition objects you pass
+- `update_workflow_actions` replaces the full `actions` array, so callers should fetch the current workflow first and then send the final desired action list
+
+Important restriction:
+
+- if the workflow has `Restrict Editing` enabled in Xcode Cloud, edits can fail even when the App Store Connect API key has `App Manager` access
+- for MCP edits to work reliably, disable the `Restrict Editing` checkbox for that workflow before using the write tools
+- if Apple still rejects the request after that, use a stronger API key role such as `Admin`
 
 ## Local Development
 

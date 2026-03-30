@@ -54,14 +54,14 @@ export interface CiWorkflow {
     isLockedForEditing?: boolean;
     clean: boolean;
     containerFilePath: string;
-    lastModifiedDate: string;
-    branchStartCondition?: Record<string, unknown>;
-    manualBranchStartCondition?: Record<string, unknown>;
-    pullRequestStartCondition?: Record<string, unknown>;
-    manualPullRequestStartCondition?: Record<string, unknown>;
-    tagStartCondition?: Record<string, unknown>;
-    manualTagStartCondition?: Record<string, unknown>;
-    scheduledStartCondition?: Record<string, unknown>;
+    lastModifiedDate: string | null;
+    branchStartCondition?: Record<string, unknown> | null;
+    manualBranchStartCondition?: Record<string, unknown> | null;
+    pullRequestStartCondition?: Record<string, unknown> | null;
+    manualPullRequestStartCondition?: Record<string, unknown> | null;
+    tagStartCondition?: Record<string, unknown> | null;
+    manualTagStartCondition?: Record<string, unknown> | null;
+    scheduledStartCondition?: Record<string, unknown> | null;
     actions?: CiWorkflowAction[];
   };
   relationships?: {

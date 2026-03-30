@@ -8,6 +8,7 @@ import type {
   CiBuildRun,
   CiProduct,
   CiWorkflow,
+  CiWorkflowAction,
   CiXcodeVersion,
   ScmRepository,
 } from '../src/api/types.js';
@@ -15,6 +16,7 @@ import { registerBuildRunTools } from '../src/tools/build-runs.js';
 import { registerDiscoveryTools } from '../src/tools/discovery.js';
 import { registerResultTools } from '../src/tools/results.js';
 import { registerTestTools } from '../src/tools/tests.js';
+import { registerWorkflowUpdateTools } from '../src/tools/workflow-updates.js';
 
 type ToolHandler = (
   arguments_: Record<string, unknown>,
@@ -233,16 +235,71 @@ test('registered tools expose product, workflow, and build data', async () => {
     },
   };
 
+  let currentWorkflow: CiWorkflow = structuredClone(workflow);
+
   const client = {
     products: {
       list: async () => [product],
     },
     workflows: {
-      listForProduct: async () => [workflow],
+      listForProduct: async () => [currentWorkflow],
       getById: async () => ({
-        workflow,
+        workflow: currentWorkflow,
         included: [repository, xcodeVersion, macOsVersion],
       }),
+      setEnabled: async (_workflowId: string, isEnabled: boolean) => {
+        currentWorkflow = {
+          ...currentWorkflow,
+          attributes: {
+            ...currentWorkflow.attributes,
+            isEnabled,
+          },
+        };
+
+        return currentWorkflow;
+      },
+      updateGeneral: async (
+        _workflowId: string,
+        attributes: Partial<CiWorkflow['attributes']>,
+      ) => {
+        currentWorkflow = {
+          ...currentWorkflow,
+          attributes: {
+            ...currentWorkflow.attributes,
+            ...attributes,
+          },
+        };
+
+        return currentWorkflow;
+      },
+      updateStartConditions: async (
+        _workflowId: string,
+        attributes: Partial<CiWorkflow['attributes']>,
+      ) => {
+        currentWorkflow = {
+          ...currentWorkflow,
+          attributes: {
+            ...currentWorkflow.attributes,
+            ...attributes,
+          },
+        };
+
+        return currentWorkflow;
+      },
+      updateActions: async (
+        _workflowId: string,
+        actions: CiWorkflowAction[],
+      ) => {
+        currentWorkflow = {
+          ...currentWorkflow,
+          attributes: {
+            ...currentWorkflow.attributes,
+            actions,
+          },
+        };
+
+        return currentWorkflow;
+      },
     },
     builds: {
       getById: async () => buildRun,
@@ -268,10 +325,17 @@ test('registered tools expose product, workflow, and build data', async () => {
   registerBuildRunTools(server as never, client);
   registerResultTools(server as never, client);
   registerTestTools(server as never, client);
+  registerWorkflowUpdateTools(server as never, client);
 
   const listProducts = registry.get('list_products');
   const listBuildRuns = registry.get('list_build_runs');
   const getWorkflowDetails = registry.get('get_workflow_details');
+  const setWorkflowEnabled = registry.get('set_workflow_enabled');
+  const updateWorkflowGeneral = registry.get('update_workflow_general');
+  const updateWorkflowStartConditions = registry.get(
+    'update_workflow_start_conditions',
+  );
+  const updateWorkflowActions = registry.get('update_workflow_actions');
   const getBuildLogs = registry.get('get_build_logs');
   const materializeBuildLogs = registry.get('materialize_build_logs');
   const getFailedTests = registry.get('get_failed_tests');
@@ -281,6 +345,10 @@ test('registered tools expose product, workflow, and build data', async () => {
   assert.ok(listProducts);
   assert.ok(listBuildRuns);
   assert.ok(getWorkflowDetails);
+  assert.ok(setWorkflowEnabled);
+  assert.ok(updateWorkflowGeneral);
+  assert.ok(updateWorkflowStartConditions);
+  assert.ok(updateWorkflowActions);
   assert.ok(getBuildLogs);
   assert.ok(materializeBuildLogs);
   assert.ok(getFailedTests);
@@ -299,6 +367,42 @@ test('registered tools expose product, workflow, and build data', async () => {
   );
   const workflowDetailsPayload = parsePayload(
     await getWorkflowDetails!({ workflowId: 'workflow-1' }),
+  );
+  const disabledWorkflowPayload = parsePayload(
+    await setWorkflowEnabled!({ workflowId: 'workflow-1', enabled: false }),
+  );
+  const updatedGeneralPayload = parsePayload(
+    await updateWorkflowGeneral!({
+      workflowId: 'workflow-1',
+      description: 'Updated description',
+      name: 'CI v2',
+    }),
+  );
+  const updatedStartConditionsPayload = parsePayload(
+    await updateWorkflowStartConditions!({
+      workflowId: 'workflow-1',
+      scheduledStartCondition: {
+        kind: 'SCHEDULED',
+        schedule: '0 5 * * *',
+      },
+    }),
+  );
+  const updatedActionsPayload = parsePayload(
+    await updateWorkflowActions!({
+      workflowId: 'workflow-1',
+      actions: [
+        {
+          name: 'Archive',
+          actionType: 'ARCHIVE',
+          destination: null,
+          buildDistributionAudience: null,
+          testConfiguration: null,
+          scheme: 'Demo',
+          platform: 'IOS',
+          isRequiredToPass: true,
+        },
+      ],
+    }),
   );
   const logsPayload = parsePayload(
     await getBuildLogs!({ workflowId: 'workflow-1', buildSelector: 'latest' }),
@@ -330,6 +434,18 @@ test('registered tools expose product, workflow, and build data', async () => {
   assert.equal(pendingBuildsPayload.buildRuns.length, 1);
   assert.equal(pendingBuildsPayload.buildRuns[0].executionProgress, 'PENDING');
   assert.equal(workflowDetailsPayload.workflow.general.isEnabled, true);
+  assert.equal(disabledWorkflowPayload.workflow.general.isEnabled, false);
+  assert.equal(updatedGeneralPayload.workflow.general.name, 'CI v2');
+  assert.equal(
+    updatedGeneralPayload.workflow.general.description,
+    'Updated description',
+  );
+  assert.equal(
+    updatedStartConditionsPayload.workflow.startConditions.scheduled.schedule,
+    '0 5 * * *',
+  );
+  assert.equal(updatedActionsPayload.workflow.actions.length, 1);
+  assert.equal(updatedActionsPayload.workflow.actions[0].actionType, 'ARCHIVE');
   assert.equal(
     workflowDetailsPayload.workflow.environment.repository.repositoryName,
     'demo-app',

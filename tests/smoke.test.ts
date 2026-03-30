@@ -43,6 +43,10 @@ test('server starts over stdio and exposes the expected tools', async () => {
     'list_products',
     'list_workflows',
     'materialize_build_logs',
+    'set_workflow_enabled',
+    'update_workflow_actions',
+    'update_workflow_general',
+    'update_workflow_start_conditions',
   ]);
 
   await client.close();

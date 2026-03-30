@@ -36,6 +36,26 @@ export class BaseAPIClient {
     return this.request<TData>(url.toString());
   }
 
+  protected async patch<TData, TBody>(
+    path: string,
+    body: TBody,
+  ): Promise<APIResponse<TData>>;
+  protected async patch<TData, TBody, TIncluded>(
+    path: string,
+    body: TBody,
+  ): Promise<APIResponse<TData, TIncluded>>;
+  protected async patch<TData, TBody, TIncluded>(
+    path: string,
+    body: TBody,
+  ): Promise<APIResponse<TData, TIncluded>> {
+    const url = new URL(path, this.baseUrl);
+
+    return this.request<TData, TIncluded>(url.toString(), {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    });
+  }
+
   protected async download(url: string): Promise<Uint8Array> {
     const response = await fetch(url, {
       headers: {
@@ -54,9 +74,12 @@ export class BaseAPIClient {
 
   private async request<TData, TIncluded = never>(
     url: string,
+    init?: RequestInit,
   ): Promise<APIResponse<TData, TIncluded>> {
     const response = await fetch(url, {
+      ...init,
       headers: {
+        ...(init?.headers ?? {}),
         Authorization: `Bearer ${this.auth.getToken()}`,
         'Content-Type': 'application/json',
       },
