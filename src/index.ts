@@ -11,6 +11,7 @@ import { registerBuildRunTools } from './tools/build-runs.js';
 import { registerDiscoveryTools } from './tools/discovery.js';
 import { registerResultTools } from './tools/results.js';
 import { registerTestTools } from './tools/tests.js';
+import { registerWorkflowUpdateTools } from './tools/workflow-updates.js';
 
 /**
  * Create and configure the MCP server.
@@ -22,13 +23,14 @@ export function createServer(): McpServer {
 
   const server = new McpServer({
     name: 'Xcode Cloud MCP',
-    version: '0.4.0',
+    version: '0.5.0',
   });
 
   registerDiscoveryTools(server, client);
   registerBuildRunTools(server, client);
   registerResultTools(server, client);
   registerTestTools(server, client);
+  registerWorkflowUpdateTools(server, client);
 
   return server;
 }
