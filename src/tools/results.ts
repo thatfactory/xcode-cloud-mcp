@@ -7,10 +7,8 @@ import {
   type BuildSelector,
 } from '../utils/build-locator.js';
 import { collectBuildRunArtifacts } from '../utils/build-artifacts.js';
-import {
-  extractTextFromArtifact,
-  summarizeLogTexts,
-} from '../utils/log-analysis.js';
+import { summarizeLogTexts } from '../utils/log-analysis.js';
+import { storeLogArtifacts } from '../utils/log-storage.js';
 import { errorResponse, jsonResponse } from '../utils/tool-response.js';
 
 interface BuildLookupInput {
@@ -62,18 +60,25 @@ export function registerResultTools(
       try {
         const buildRun = await resolveBuildLocator(client, input);
         const groupedArtifacts = await collectBuildRunArtifacts(client, buildRun.id);
-        const maxCharacters = input.maxCharacters ?? 8000;
-        const parsedLogTexts = await downloadLogTexts(
+        const maxCharacters = Math.min(input.maxCharacters ?? 2000, 4000);
+        const storedLogs = await storeLogArtifacts(
           client,
+          buildRun.id,
           groupedArtifacts.logs,
         );
-        const logSummary = summarizeLogTexts(parsedLogTexts, maxCharacters);
+        const logSummary = summarizeLogTexts(
+          storedLogs.parsedLogTexts,
+          maxCharacters,
+        );
 
         return jsonResponse({
           buildRun: formatBuildRun(buildRun),
           issueCounts: buildRun.attributes.issueCounts ?? defaultIssueCounts(),
           artifacts: groupedArtifacts.logs.map(formatArtifact),
+          savedLogsDirectory: storedLogs.directoryPath,
+          savedLogs: storedLogs.savedLogFiles,
           summary: logSummary.summary,
+          failedTests: logSummary.failedTests,
           highlights: logSummary.highlights,
           excerpt: logSummary.excerpt,
         });
@@ -122,35 +127,4 @@ function formatArtifact(artifact: CiArtifact) {
     fileSize: artifact.attributes.fileSize,
     downloadUrl: artifact.attributes.downloadUrl,
   };
-}
-
-async function downloadLogTexts(
-  client: AppStoreConnectClient,
-  artifacts: CiArtifact[],
-): Promise<string[]> {
-  const parsedLogTexts: string[] = [];
-
-  for (const artifact of artifacts) {
-    const downloadUrl = artifact.attributes.downloadUrl;
-
-    if (!downloadUrl) {
-      continue;
-    }
-
-    try {
-      const artifactBytes = await client.artifacts.downloadArtifact(downloadUrl);
-      const extractedText = extractTextFromArtifact(
-        artifact.attributes.fileName,
-        artifactBytes,
-      );
-
-      if (extractedText) {
-        parsedLogTexts.push(extractedText);
-      }
-    } catch {
-      continue;
-    }
-  }
-
-  return parsedLogTexts;
 }

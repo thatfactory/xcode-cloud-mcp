@@ -7,6 +7,10 @@ export interface LogSummary {
     errorHighlightCount: number;
     warningHighlightCount: number;
   };
+  failedTests: Array<{
+    testName: string;
+    message?: string;
+  }>;
   highlights: string[];
   excerpt: string;
 }
@@ -65,11 +69,16 @@ export function summarizeLogTexts(
 ): LogSummary {
   const normalizedMaxCharacters = Math.max(500, maxCharacters);
   const highlightSet = new Set<string>();
+  const failedTests = new Map<string, { testName: string; message?: string }>();
   let warningHighlightCount = 0;
   let errorHighlightCount = 0;
 
   for (const parsedLogText of parsedLogTexts) {
-    for (const line of parsedLogText.split(/\r?\n/)) {
+    const lines = parsedLogText.split(/\r?\n/);
+
+    collectFailedTests(lines, failedTests);
+
+    for (const line of lines) {
       const normalizedLine = line.trim();
 
       if (!normalizedLine) {
@@ -93,8 +102,15 @@ export function summarizeLogTexts(
     }
   }
 
-  const combinedText = parsedLogTexts.join('\n\n');
-  const excerpt = combinedText.slice(0, normalizedMaxCharacters);
+  const excerptSource = [
+    ...[...failedTests.values()].flatMap((failedTest) =>
+      failedTest.message
+        ? [`${failedTest.testName}: ${failedTest.message}`]
+        : [failedTest.testName],
+    ),
+    ...highlightSet,
+  ].join('\n');
+  const excerpt = excerptSource.slice(0, normalizedMaxCharacters);
 
   return {
     summary: {
@@ -102,9 +118,66 @@ export function summarizeLogTexts(
       errorHighlightCount,
       warningHighlightCount,
     },
+    failedTests: [...failedTests.values()].sort(
+      (leftFailure, rightFailure) =>
+        Number(Boolean(rightFailure.message)) - Number(Boolean(leftFailure.message)),
+    ),
     highlights: [...highlightSet],
     excerpt,
   };
+}
+
+function collectFailedTests(
+  lines: string[],
+  failedTests: Map<string, { testName: string; message?: string }>,
+): void {
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index]?.trim();
+
+    if (!line) {
+      continue;
+    }
+
+    const swiftTestingMatch = line.match(/([A-Za-z0-9_]+\(.*\)) failed with:?$/i);
+
+    if (swiftTestingMatch?.[1]) {
+      const testName = swiftTestingMatch[1];
+      const message = lines[index + 1]?.trim();
+      failedTests.set(testName, {
+        testName,
+        message: message && !isNoiseLine(message) ? message : undefined,
+      });
+      continue;
+    }
+
+    const swiftTestingIssueMatch = line.match(
+      /Test ([A-Za-z0-9_]+\(.*\)) recorded an issue .*?: (.+)$/i,
+    );
+
+    if (swiftTestingIssueMatch?.[1] && swiftTestingIssueMatch?.[2]) {
+      failedTests.set(swiftTestingIssueMatch[1], {
+        testName: swiftTestingIssueMatch[1],
+        message: swiftTestingIssueMatch[2],
+      });
+      continue;
+    }
+
+    const xctestMatch = line.match(
+      /Test Case .*?([A-Za-z0-9_]+)\]' failed/i,
+    );
+
+    if (xctestMatch?.[1]) {
+      const testName = `${xctestMatch[1]}()`;
+      const nextLine = lines[index + 1]?.trim();
+      const currentRecord = failedTests.get(testName) ?? { testName };
+
+      if (nextLine && isAssertionLine(nextLine)) {
+        currentRecord.message = nextLine;
+      }
+
+      failedTests.set(testName, currentRecord);
+    }
+  }
 }
 
 function decodeTextBuffer(buffer: Uint8Array): string | null {
@@ -158,4 +231,12 @@ function isErrorLine(line: string): boolean {
 
 function isWarningLine(line: string): boolean {
   return /warning:/i.test(line);
+}
+
+function isNoiseLine(line: string): boolean {
+  return /^Test Case /.test(line) || /^===== /.test(line);
+}
+
+function isAssertionLine(line: string): boolean {
+  return /expectation failed|assert|error:/i.test(line);
 }

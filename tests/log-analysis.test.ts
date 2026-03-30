@@ -39,12 +39,19 @@ test('extractTextFromArtifact reads zip content', () => {
 
 test('summarizeLogTexts counts warnings and errors', () => {
   const summary = summarizeLogTexts(
-    ['warning: watch out\nerror: broken\ntest case Example failed'],
+    [
+      'displayExpiryDateReturnsFormattedDateWhenExpiryDateExists() failed with:\nExpectation failed: (displayDate?.contains("2025") → false) == true: Display date should contain the year\nwarning: watch out\nerror: broken\ntest case Example failed',
+    ],
     2000,
   );
 
   assert.equal(summary.summary.parsedArtifactCount, 1);
   assert.equal(summary.summary.warningHighlightCount, 1);
-  assert.equal(summary.summary.errorHighlightCount, 2);
+  assert.equal(summary.summary.errorHighlightCount, 4);
+  assert.equal(summary.failedTests[0]?.testName, 'displayExpiryDateReturnsFormattedDateWhenExpiryDateExists()');
+  assert.match(
+    summary.failedTests[0]?.message ?? '',
+    /Display date should contain the year/,
+  );
   assert.match(summary.excerpt, /warning: watch out/);
 });
