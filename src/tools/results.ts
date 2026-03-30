@@ -50,7 +50,7 @@ export function registerResultTools(
     'get_build_logs',
     {
       description:
-        'Resolve a build, download text-like log artifacts when possible, and summarize the most relevant errors and warnings.',
+        'Resolve a build, download text-like log artifacts, save them under a temporary local directory, and return a compact summary with failed tests, highlights, and saved log paths that local agents can inspect with grep or cat.',
       inputSchema: {
         ...buildLookupSchema(),
         maxCharacters: z.number().int().positive().max(100_000).optional(),

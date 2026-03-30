@@ -31,7 +31,7 @@ export function registerTestTools(
     'get_test_results',
     {
       description:
-        'Resolve a build and return build-level test summary information plus result bundle metadata.',
+        'Resolve a build and return build-level test summary information, saved local log paths, detected failed tests, and result bundle metadata.',
       inputSchema: buildLookupSchema(),
     },
     async (input: BuildLookupInput) => {

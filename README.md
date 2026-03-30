@@ -17,6 +17,7 @@ Minimal MCP server for discovering Xcode Cloud products and workflows, then retr
 - List recent workflow runs with `list_build_runs`.
 - Retrieve build issue counts with `get_build_issues`.
 - Retrieve and summarize text-like build logs with `get_build_logs`.
+- Save extracted logs to a local temporary directory and return file paths for agent-side inspection.
 - Retrieve test summaries with `get_test_results`.
 - Retrieve screenshots, videos, result bundles, and test products with `get_test_artifacts`.
 
@@ -73,10 +74,37 @@ codex mcp add xcode-cloud \
 - `get_test_results(buildRunId? workflowId? buildNumber? buildSelector?)`
 - `get_test_artifacts(buildRunId? workflowId? buildNumber? buildSelector?)`
 
+## Log Retrieval Behavior
+
+`get_build_logs` keeps the MCP response compact on purpose:
+
+- it downloads and extracts text-like build log artifacts to a temporary local directory
+- it returns `savedLogsDirectory` and `savedLogs` so local agents can inspect the extracted files with `rg`, `grep`, or `cat`
+- it returns a compact `failedTests` summary, `highlights`, and a capped `excerpt`
+- even if a caller passes a very large `maxCharacters`, the inline excerpt is clamped to avoid oversized MCP responses
+
+Temporary logs are written under the system temp directory in a path like:
+
+```text
+/tmp/xcode-cloud-mcp/build-logs/<buildRunId>
+```
+
+On macOS this typically resolves to a path under `/var/folders/.../T/`.
+
+Cleanup policy:
+
+- each new call for the same `buildRunId` deletes and recreates that build-specific temp directory first
+- older build directories are not explicitly garbage-collected by the server yet
+- they are left in the system temp area, where the OS may eventually clean them up
+
 ## Example Prompts
 
 ```text
 Retrieve logs of the latest failing build for workflow abc123.
+```
+
+```text
+Retrieve logs of build 81, then inspect the returned savedLogsDirectory and grep for Expectation failed.
 ```
 
 ```text
