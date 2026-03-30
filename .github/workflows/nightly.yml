@@ -1,0 +1,32 @@
+---
+name: Nightly Tests
+
+on:
+  schedule:
+    - cron: '0 4 * * *'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  nightly_tests:
+    name: Nightly Tests
+    runs-on: [self-hosted, macOS]
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v6
+        with:
+          clean: true
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Run Tests
+        run: npm test
