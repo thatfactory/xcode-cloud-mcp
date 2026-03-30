@@ -14,6 +14,7 @@ Minimal MCP server for discovering Xcode Cloud products and workflows, then retr
 
 - Discover Xcode Cloud products with `list_products`.
 - Discover workflows for a product with `list_workflows`.
+- Retrieve workflow configuration with `get_workflow_details`.
 - List recent workflow runs with `list_build_runs`.
 - Retrieve build issue counts with `get_build_issues`.
 - Retrieve and summarize text-like build logs with `get_build_logs`.
@@ -71,6 +72,7 @@ codex mcp add xcode-cloud \
 
 - `list_products(limit?)`
 - `list_workflows(productId, limit?)`
+- `get_workflow_details(workflowId)`
 - `list_build_runs(workflowId, limit?, status?)`
 - `get_build_issues(buildRunId? workflowId? buildNumber? buildSelector?)`
 - `get_build_logs(buildRunId? workflowId? buildNumber? buildSelector?, maxCharacters?)`
@@ -135,6 +137,26 @@ Show me the latest failing UI test artifacts for workflow abc123.
 ```text
 List the workflows for product def456 and then summarize the latest build.
 ```
+
+```text
+Show me the full workflow details for workflow abc123, including environment, start conditions, actions, and whether it is enabled.
+```
+
+## Workflow Details Behavior
+
+`get_workflow_details` returns the live workflow configuration exposed by App Store Connect, grouped into:
+
+- `general`
+- `environment`
+- `startConditions`
+- `actions`
+- `postActions`
+
+Notes:
+
+- `environment` includes repository, `xcodeVersion`, and `macOsVersion` when App Store Connect returns them.
+- `actions` includes action type, scheme, platform, destination, required-to-pass state, and test-plan details when present.
+- `postActions` is currently returned as an empty array with a note because the App Store Connect workflow payload does not expose separate post-actions in the observed API response.
 
 ## Local Development
 

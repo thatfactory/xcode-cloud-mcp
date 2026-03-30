@@ -18,7 +18,15 @@ export class BaseAPIClient {
   protected async get<TData>(
     path: string,
     params?: Record<string, string>,
-  ): Promise<APIResponse<TData>> {
+  ): Promise<APIResponse<TData>>;
+  protected async get<TData, TIncluded>(
+    path: string,
+    params?: Record<string, string>,
+  ): Promise<APIResponse<TData, TIncluded>>;
+  protected async get<TData, TIncluded>(
+    path: string,
+    params?: Record<string, string>,
+  ): Promise<APIResponse<TData, TIncluded>> {
     const url = new URL(path, this.baseUrl);
 
     for (const [key, value] of Object.entries(params ?? {})) {
@@ -44,7 +52,9 @@ export class BaseAPIClient {
     return new Uint8Array(await response.arrayBuffer());
   }
 
-  private async request<TData>(url: string): Promise<APIResponse<TData>> {
+  private async request<TData, TIncluded = never>(
+    url: string,
+  ): Promise<APIResponse<TData, TIncluded>> {
     const response = await fetch(url, {
       headers: {
         Authorization: `Bearer ${this.auth.getToken()}`,
@@ -60,7 +70,8 @@ export class BaseAPIClient {
       );
     }
 
-    const payload = (await response.json()) as APIResponse<TData> | APIErrorResponse;
+    const payload =
+      (await response.json()) as APIResponse<TData, TIncluded> | APIErrorResponse;
 
     if (!response.ok) {
       const apiErrorResponse = payload as APIErrorResponse;
@@ -71,6 +82,6 @@ export class BaseAPIClient {
       throw new Error(`API Error (${response.status}): ${message}`);
     }
 
-    return payload as APIResponse<TData>;
+    return payload as APIResponse<TData, TIncluded>;
   }
 }

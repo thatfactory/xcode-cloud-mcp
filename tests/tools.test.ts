@@ -3,10 +3,13 @@ import assert from 'node:assert/strict';
 import type { AppStoreConnectClient } from '../src/api/client.js';
 import type {
   CiArtifact,
+  CiMacOsVersion,
   CiBuildAction,
   CiBuildRun,
   CiProduct,
   CiWorkflow,
+  CiXcodeVersion,
+  ScmRepository,
 } from '../src/api/types.js';
 import { registerBuildRunTools } from '../src/tools/build-runs.js';
 import { registerDiscoveryTools } from '../src/tools/discovery.js';
@@ -49,9 +52,89 @@ test('registered tools expose product, workflow, and build data', async () => {
       name: 'CI',
       description: 'Build and test',
       isEnabled: true,
+      isLockedForEditing: false,
       clean: false,
       containerFilePath: 'Demo.xcodeproj',
       lastModifiedDate: '2026-03-30T11:00:00Z',
+      branchStartCondition: {
+        kind: 'BRANCH',
+        patterns: ['main'],
+      },
+      pullRequestStartCondition: {
+        kind: 'PULL_REQUEST',
+        sourceBranches: ['*'],
+      },
+      scheduledStartCondition: {
+        kind: 'SCHEDULED',
+        schedule: '0 4 * * *',
+      },
+      actions: [
+        {
+          name: 'Unit Tests',
+          actionType: 'TEST',
+          platform: 'IOS',
+          scheme: 'Demo',
+          destination: 'Any iPhone Device',
+          isRequiredToPass: true,
+          testConfiguration: {
+            kind: 'TEST_PLAN',
+            testPlanName: 'DemoPlan',
+            testDestinations: [{ deviceType: 'iPhone 17' }],
+          },
+        },
+      ],
+    },
+    relationships: {
+      repository: {
+        data: {
+          type: 'scmRepositories',
+          id: 'repo-1',
+        },
+      },
+      xcodeVersion: {
+        data: {
+          type: 'ciXcodeVersions',
+          id: 'xcode-1',
+        },
+      },
+      macOsVersion: {
+        data: {
+          type: 'ciMacOsVersions',
+          id: 'macos-1',
+        },
+      },
+    },
+  };
+
+  const repository: ScmRepository = {
+    id: 'repo-1',
+    type: 'scmRepositories',
+    attributes: {
+      ownerName: 'thatfactory',
+      repositoryName: 'demo-app',
+      scmProvider: 'GITHUB',
+      defaultBranch: 'main',
+      httpCloneUrl: 'https://github.com/thatfactory/demo-app.git',
+      sshCloneUrl: 'git@github.com:thatfactory/demo-app.git',
+    },
+  };
+
+  const xcodeVersion: CiXcodeVersion = {
+    id: 'xcode-1',
+    type: 'ciXcodeVersions',
+    attributes: {
+      name: 'Xcode 26.3',
+      version: '26.3',
+      testDestinations: [{ deviceType: 'iPhone 17' }],
+    },
+  };
+
+  const macOsVersion: CiMacOsVersion = {
+    id: 'macos-1',
+    type: 'ciMacOsVersions',
+    attributes: {
+      name: 'macOS 26.3',
+      version: '26.3',
     },
   };
 
@@ -105,6 +188,10 @@ test('registered tools expose product, workflow, and build data', async () => {
     },
     workflows: {
       listForProduct: async () => [workflow],
+      getById: async () => ({
+        workflow,
+        included: [repository, xcodeVersion, macOsVersion],
+      }),
     },
     builds: {
       getById: async () => buildRun,
@@ -133,6 +220,7 @@ test('registered tools expose product, workflow, and build data', async () => {
 
   const listProducts = registry.get('list_products');
   const listBuildRuns = registry.get('list_build_runs');
+  const getWorkflowDetails = registry.get('get_workflow_details');
   const getBuildLogs = registry.get('get_build_logs');
   const materializeBuildLogs = registry.get('materialize_build_logs');
   const getFailedTests = registry.get('get_failed_tests');
@@ -141,6 +229,7 @@ test('registered tools expose product, workflow, and build data', async () => {
 
   assert.ok(listProducts);
   assert.ok(listBuildRuns);
+  assert.ok(getWorkflowDetails);
   assert.ok(getBuildLogs);
   assert.ok(materializeBuildLogs);
   assert.ok(getFailedTests);
@@ -150,6 +239,9 @@ test('registered tools expose product, workflow, and build data', async () => {
   const productsPayload = parsePayload(await listProducts!({}));
   const buildsPayload = parsePayload(
     await listBuildRuns!({ workflowId: 'workflow-1' }),
+  );
+  const workflowDetailsPayload = parsePayload(
+    await getWorkflowDetails!({ workflowId: 'workflow-1' }),
   );
   const logsPayload = parsePayload(
     await getBuildLogs!({ workflowId: 'workflow-1', buildSelector: 'latest' }),
@@ -176,6 +268,12 @@ test('registered tools expose product, workflow, and build data', async () => {
 
   assert.equal(productsPayload.products[0].id, 'product-1');
   assert.equal(buildsPayload.buildRuns[0].number, 42);
+  assert.equal(workflowDetailsPayload.workflow.general.isEnabled, true);
+  assert.equal(
+    workflowDetailsPayload.workflow.environment.repository.repositoryName,
+    'demo-app',
+  );
+  assert.equal(workflowDetailsPayload.workflow.actions[0].testConfiguration.kind, 'TEST_PLAN');
   assert.equal(logsPayload.summary.errorHighlightCount, 1);
   assert.equal(Array.isArray(materializedLogsPayload.savedLogs), true);
   assert.equal(Array.isArray(failedTestsPayload.failedTests), true);

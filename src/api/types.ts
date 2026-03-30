@@ -1,8 +1,9 @@
 /**
  * App Store Connect API response envelope.
  */
-export interface APIResponse<TData> {
+export interface APIResponse<TData, TIncluded = never> {
   data: TData;
+  included?: TIncluded[];
   links?: {
     self?: string;
     next?: string;
@@ -50,11 +51,104 @@ export interface CiWorkflow {
     name: string;
     description?: string;
     isEnabled: boolean;
+    isLockedForEditing?: boolean;
     clean: boolean;
     containerFilePath: string;
     lastModifiedDate: string;
+    branchStartCondition?: Record<string, unknown>;
+    manualBranchStartCondition?: Record<string, unknown>;
+    pullRequestStartCondition?: Record<string, unknown>;
+    manualPullRequestStartCondition?: Record<string, unknown>;
+    tagStartCondition?: Record<string, unknown>;
+    manualTagStartCondition?: Record<string, unknown>;
+    scheduledStartCondition?: Record<string, unknown>;
+    actions?: CiWorkflowAction[];
+  };
+  relationships?: {
+    repository?: {
+      data?: {
+        type: 'scmRepositories';
+        id: string;
+      } | null;
+    };
+    xcodeVersion?: {
+      data?: {
+        type: 'ciXcodeVersions';
+        id: string;
+      } | null;
+    };
+    macOsVersion?: {
+      data?: {
+        type: 'ciMacOsVersions';
+        id: string;
+      } | null;
+    };
   };
 }
+
+/**
+ * Xcode Cloud workflow action.
+ */
+export interface CiWorkflowAction {
+  actionType: string;
+  buildDistributionAudience?: string | null;
+  destination?: string | null;
+  isRequiredToPass?: boolean | null;
+  name: string;
+  platform?: string | null;
+  scheme?: string | null;
+  testConfiguration?: {
+    kind?: string | null;
+    testDestinations?: Array<Record<string, unknown>>;
+    testPlanName?: string | null;
+  } | null;
+}
+
+/**
+ * Xcode Cloud source repository.
+ */
+export interface ScmRepository {
+  type: 'scmRepositories';
+  id: string;
+  attributes: {
+    defaultBranch?: string;
+    httpCloneUrl?: string;
+    ownerName?: string;
+    repositoryName?: string;
+    scmProvider?: string;
+    sshCloneUrl?: string;
+  };
+}
+
+/**
+ * Xcode version used by a workflow.
+ */
+export interface CiXcodeVersion {
+  type: 'ciXcodeVersions';
+  id: string;
+  attributes: {
+    name?: string;
+    testDestinations?: Array<Record<string, unknown>>;
+    version?: string;
+  };
+}
+
+/**
+ * macOS version used by a workflow.
+ */
+export interface CiMacOsVersion {
+  type: 'ciMacOsVersions';
+  id: string;
+  attributes: {
+    name?: string;
+    version?: string;
+  };
+}
+
+export type WorkflowIncludedResource =
+  | CiMacOsVersion
+  | CiXcodeVersion
+  | ScmRepository;
 
 export interface CiIssueCounts {
   analyzerWarnings: number;

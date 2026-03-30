@@ -38,6 +38,7 @@ test('server starts over stdio and exposes the expected tools', async () => {
     'get_failed_tests',
     'get_test_artifacts',
     'get_test_results',
+    'get_workflow_details',
     'list_build_runs',
     'list_products',
     'list_workflows',
