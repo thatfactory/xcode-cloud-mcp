@@ -1,6 +1,7 @@
 <p align="center">
   <a href="https://docs.anthropic.com/en/docs/claude-code/mcp"><img alt="Claude" src="https://img.shields.io/badge/Claude-MCP-D97757.svg?logo=claude&logoColor=white"></a>
   <a href="https://developers.openai.com/codex/mcp"><img alt="Codex" src="https://img.shields.io/badge/Codex-MCP-1F70C1.svg?logo=icloud&logoColor=white"></a>
+  <a href="https://www.npmjs.com/package/@thatfactory/xcode-cloud-mcp"><img alt="NPM" src="https://img.shields.io/badge/NPM-ready-CB3837.svg?logo=npm&logoColor=white"></a>
   <a href="https://en.wikipedia.org/wiki/MIT_License"><img alt="License" src="https://img.shields.io/badge/License-MIT-67ac5b.svg?logo=googledocs&logoColor=white"></a>
   <a href="https://github.com/thatfactory/xcode-cloud-mcp/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/thatfactory/xcode-cloud-mcp/actions/workflows/ci.yml/badge.svg"></a>
   <a href="https://github.com/thatfactory/xcode-cloud-mcp/actions/workflows/nightly.yml"><img alt="Nightly" src="https://github.com/thatfactory/xcode-cloud-mcp/actions/workflows/nightly.yml/badge.svg"></a>
@@ -8,7 +9,7 @@
 
 # xcode-cloud-mcp
 
-Minimal MCP server for discovering Xcode Cloud products and workflows, then retrieving build issues, logs, test summaries, and UI test artifacts through the App Store Connect API.
+Minimal MCP server for discovering Xcode Cloud products, inspecting and editing workflows, monitoring build runs, and retrieving build issues, logs, test summaries, and UI test artifacts through the App Store Connect API.
 
 ## Features
 
