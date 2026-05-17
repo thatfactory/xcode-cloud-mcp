@@ -6,13 +6,9 @@ import type { CiProduct } from '../types.js';
  */
 export class ProductsClient extends BaseAPIClient {
   /**
-   * List Xcode Cloud products.
+   * List all Xcode Cloud products, paginating through all results.
    */
-  async list(limit?: number): Promise<CiProduct[]> {
-    const response = await this.get<CiProduct[]>('/v1/ciProducts', {
-      ...(limit ? { limit: String(limit) } : {}),
-    });
-
-    return response.data;
+  async list(): Promise<CiProduct[]> {
+    return this.listAll<CiProduct>('/v1/ciProducts', { limit: '200' });
   }
 }

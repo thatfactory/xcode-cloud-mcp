@@ -36,6 +36,35 @@ export class BaseAPIClient {
     return this.request<TData>(url.toString());
   }
 
+  /**
+   * Fetch all pages of a paginated list endpoint.
+   * Follows `links.next` until no more pages are available.
+   */
+  protected async listAll<TData>(
+    path: string,
+    params?: Record<string, string>,
+  ): Promise<TData[]> {
+    const allData: TData[] = [];
+
+    let response = await this.get<TData>(path, params);
+    if (Array.isArray(response.data)) {
+      allData.push(...response.data);
+    } else {
+      return [response.data];
+    }
+
+    while (response.links?.next) {
+      // The next URL is a full absolute URL from Apple's API
+      // Use request() directly since the URL is already absolute
+      response = await this.request<TData>(response.links.next);
+      if (Array.isArray(response.data)) {
+        allData.push(...response.data);
+      }
+    }
+
+    return allData;
+  }
+
   protected async patch<TData, TBody>(
     path: string,
     body: TBody,

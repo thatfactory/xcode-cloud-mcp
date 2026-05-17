@@ -12,17 +12,13 @@ type WorkflowAttributeUpdate = Partial<CiWorkflow['attributes']>;
  */
 export class WorkflowsClient extends BaseAPIClient {
   /**
-   * List workflows belonging to a product.
+   * List all workflows belonging to a product, paginating through all results.
    */
-  async listForProduct(productId: string, limit?: number): Promise<CiWorkflow[]> {
-    const response = await this.get<CiWorkflow[]>(
+  async listForProduct(productId: string): Promise<CiWorkflow[]> {
+    return this.listAll<CiWorkflow>(
       `/v1/ciProducts/${productId}/workflows`,
-      {
-        ...(limit ? { limit: String(limit) } : {}),
-      },
+      { limit: '200' },
     );
-
-    return response.data;
   }
 
   /**

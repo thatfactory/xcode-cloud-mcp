@@ -22,27 +22,23 @@ export function registerBuildRunTools(
     'list_build_runs',
     {
       description:
-        'List recent build runs for a workflow, optionally filtered by outcome.',
+        'List recent build runs for a workflow, optionally filtered by outcome. Automatically paginates through all build runs.',
       inputSchema: {
         workflowId: z.string(),
-        limit: z.number().int().positive().max(200).optional(),
         status: z.enum(['all', 'failed', 'pending', 'running', 'succeeded']).optional(),
       },
     },
     async ({
       workflowId,
-      limit,
       status,
     }: {
       workflowId: string;
-      limit?: number;
       status?: BuildRunStatusFilter;
     }) => {
       try {
         const buildRuns = sortBuildRuns(
           await client.builds.listForWorkflow(
             parseIdentifier(workflowId, 'workflow'),
-            limit ?? 20,
           ),
         );
 

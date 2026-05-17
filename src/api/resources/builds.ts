@@ -14,17 +14,13 @@ export class BuildsClient extends BaseAPIClient {
   }
 
   /**
-   * List recent build runs for a workflow.
+   * List all build runs for a workflow, paginating through all results.
    */
-  async listForWorkflow(workflowId: string, limit?: number): Promise<CiBuildRun[]> {
-    const response = await this.get<CiBuildRun[]>(
+  async listForWorkflow(workflowId: string): Promise<CiBuildRun[]> {
+    return this.listAll<CiBuildRun>(
       `/v1/ciWorkflows/${workflowId}/buildRuns`,
-      {
-        ...(limit ? { limit: String(limit) } : {}),
-      },
+      { limit: '200' },
     );
-
-    return response.data;
   }
 
   /**
