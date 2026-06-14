@@ -33,7 +33,9 @@ Minimal MCP server for discovering Xcode Cloud products, inspecting and editing 
 
 Build lookup is workflow-scoped. Retrieval tools accept a direct `buildRunId`, or a `workflowId` plus `buildNumber`, or a `workflowId` plus `buildSelector: "latest" | "latestFailing"`.
 
-`list_build_runs` also supports `status: "all" | "failed" | "succeeded" | "running" | "pending"`, so agents can poll active workflows without post-processing every run locally.
+`list_products` and `list_workflows` automatically paginate through all results.
+
+`list_build_runs` supports `status: "all" | "failed" | "succeeded" | "running" | "pending"` and an optional `limit`, which defaults to `20`, so agents can poll active workflows without post-processing every run locally or inflating MCP response size.
 
 ## Requirements
 
@@ -78,8 +80,8 @@ codex mcp add xcode-cloud \
 
 ## Available Tools
 
-- `list_products(limit?)`
-- `list_workflows(productId, limit?)`
+- `list_products()`
+- `list_workflows(productId)`
 - `get_workflow_details(workflowId)`
 - `list_build_runs(workflowId, limit?, status?)`
 - `set_workflow_enabled(workflowId, enabled)`
