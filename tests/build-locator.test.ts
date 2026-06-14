@@ -59,7 +59,13 @@ test('sortBuildRuns returns newest build first', () => {
 });
 
 test('resolveBuildLocator resolves a concrete build number', async () => {
-  const client = createClientMock();
+  const client = createClientMock({
+    findByNumberForWorkflow: async (workflowId, buildNumber) => {
+      assert.equal(workflowId, 'wf-1');
+      assert.equal(buildNumber, 2);
+      return buildRuns[1];
+    },
+  });
 
   const buildRun = await resolveBuildLocator(client, {
     workflowId: 'wf-1',
@@ -70,13 +76,36 @@ test('resolveBuildLocator resolves a concrete build number', async () => {
 });
 
 test('resolveBuildLocator resolves latest failing build', async () => {
-  const client = createClientMock();
+  const client = createClientMock({
+    findLatestFailingForWorkflow: async (workflowId) => {
+      assert.equal(workflowId, 'wf-1');
+      return buildRuns[2];
+    },
+  });
 
   const buildRun = await resolveBuildLocator(client, {
     workflowId: 'wf-1',
     buildSelector: 'latestFailing',
   });
 
+  assert.equal(buildRun.id, 'run-3');
+});
+
+test('resolveBuildLocator resolves latest build from a bounded listing', async () => {
+  let receivedLimit: number | undefined;
+  const client = createClientMock({
+    listForWorkflow: async (_workflowId, limit) => {
+      receivedLimit = limit;
+      return buildRuns;
+    },
+  });
+
+  const buildRun = await resolveBuildLocator(client, {
+    workflowId: 'wf-1',
+    buildSelector: 'latest',
+  });
+
+  assert.equal(receivedLimit, 1);
   assert.equal(buildRun.id, 'run-3');
 });
 
@@ -87,12 +116,21 @@ test('isFailureStatus matches failed and errored runs only', () => {
   assert.equal(isFailureStatus('CANCELED'), false);
 });
 
-function createClientMock(): AppStoreConnectClient {
+function createClientMock(
+  overrides: Partial<AppStoreConnectClient['builds']> = {},
+): AppStoreConnectClient {
   return {
     builds: {
       getById: async (buildRunId: string) =>
         buildRuns.find((buildRun) => buildRun.id === buildRunId)!,
       listForWorkflow: async () => buildRuns,
+      findByNumberForWorkflow: async (_workflowId: string, buildNumber: number) =>
+        buildRuns.find((buildRun) => buildRun.attributes.number === buildNumber),
+      findLatestFailingForWorkflow: async () =>
+        buildRuns.find((buildRun) =>
+          isFailureStatus(buildRun.attributes.completionStatus),
+        ),
+      ...overrides,
     },
   } as unknown as AppStoreConnectClient;
 }

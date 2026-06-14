@@ -85,6 +85,26 @@ test('listAll follows pagination links across multiple pages', async () => {
   );
 });
 
+test('listAll rejects pagination links on unexpected origins', async () => {
+  const client = new TestableClient([
+    {
+      data: [{ id: '1' }],
+      links: {
+        self: 'https://api.appstoreconnect.apple.com/v1/test?limit=200',
+        next: 'https://evil.example.test/v1/test?cursor=page2&limit=200',
+      },
+    },
+  ]);
+
+  await assert.rejects(
+    () => client.testListAll('/v1/test'),
+    {
+      message:
+        'Unexpected pagination origin: https://evil.example.test. Expected https://api.appstoreconnect.apple.com.',
+    },
+  );
+});
+
 test('listAll returns empty array when first page has empty data', async () => {
   const client = new TestableClient([
     {

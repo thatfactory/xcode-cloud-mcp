@@ -59,23 +59,21 @@ export async function resolveBuildLocator(
   input: BuildLocatorInput,
 ): Promise<CiBuildRun> {
   const locator = validateBuildLocator(input);
+  const workflowId = locator.workflowId!;
 
   if (locator.buildRunId) {
     return client.builds.getById(locator.buildRunId);
   }
 
-  const buildRuns = sortBuildRuns(
-    await client.builds.listForWorkflow(locator.workflowId!, 50),
-  );
-
   if (locator.buildNumber !== undefined) {
-    const matchingBuildRun = buildRuns.find(
-      (buildRun) => buildRun.attributes.number === locator.buildNumber,
+    const matchingBuildRun = await client.builds.findByNumberForWorkflow(
+      workflowId,
+      locator.buildNumber,
     );
 
     if (!matchingBuildRun) {
       throw new Error(
-        `No build run found for workflow ${locator.workflowId} with build number ${locator.buildNumber}.`,
+        `No build run found for workflow ${workflowId} with build number ${locator.buildNumber}.`,
       );
     }
 
@@ -83,23 +81,27 @@ export async function resolveBuildLocator(
   }
 
   if (locator.buildSelector === 'latestFailing') {
-    const latestFailingBuildRun = buildRuns.find((buildRun) =>
-      isFailureStatus(buildRun.attributes.completionStatus),
+    const latestFailingBuildRun = await client.builds.findLatestFailingForWorkflow(
+      workflowId,
     );
 
     if (!latestFailingBuildRun) {
       throw new Error(
-        `No failing build runs found for workflow ${locator.workflowId}.`,
+        `No failing build runs found for workflow ${workflowId}.`,
       );
     }
 
     return latestFailingBuildRun;
   }
 
+  const buildRuns = sortBuildRuns(
+    await client.builds.listForWorkflow(workflowId, 1),
+  );
+
   const latestBuildRun = buildRuns[0];
 
   if (!latestBuildRun) {
-    throw new Error(`No build runs found for workflow ${locator.workflowId}.`);
+    throw new Error(`No build runs found for workflow ${workflowId}.`);
   }
 
   return latestBuildRun;

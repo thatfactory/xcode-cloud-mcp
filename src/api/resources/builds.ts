@@ -5,6 +5,8 @@ import type { CiBuildAction, CiBuildRun } from '../types.js';
  * Build run endpoints.
  */
 export class BuildsClient extends BaseAPIClient {
+  static readonly buildLocatorScanLimit = 2000;
+
   /**
    * Get a build run by id.
    */
@@ -22,6 +24,39 @@ export class BuildsClient extends BaseAPIClient {
       `/v1/ciWorkflows/${workflowId}/buildRuns`,
       { limit: '200' },
       limit,
+    );
+  }
+
+  /**
+   * Find a build run with a specific build number for a workflow.
+   */
+  async findByNumberForWorkflow(
+    workflowId: string,
+    buildNumber: number,
+    maxItems: number = BuildsClient.buildLocatorScanLimit,
+  ): Promise<CiBuildRun | undefined> {
+    return this.findInList<CiBuildRun>(
+      `/v1/ciWorkflows/${workflowId}/buildRuns`,
+      (buildRun) => buildRun.attributes.number === buildNumber,
+      { limit: '200' },
+      maxItems,
+    );
+  }
+
+  /**
+   * Find the latest failing build run for a workflow.
+   */
+  async findLatestFailingForWorkflow(
+    workflowId: string,
+    maxItems: number = BuildsClient.buildLocatorScanLimit,
+  ): Promise<CiBuildRun | undefined> {
+    return this.findInList<CiBuildRun>(
+      `/v1/ciWorkflows/${workflowId}/buildRuns`,
+      (buildRun) =>
+        buildRun.attributes.completionStatus === 'FAILED' ||
+        buildRun.attributes.completionStatus === 'ERRORED',
+      { limit: '200' },
+      maxItems,
     );
   }
 

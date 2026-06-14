@@ -56,9 +56,7 @@ export class BaseAPIClient {
     }
 
     while (response.links?.next && (!maxItems || allData.length < maxItems)) {
-      // The next URL is a full absolute URL from Apple's API
-      // Use request() directly since the URL is already absolute
-      response = await this.request<TData>(response.links.next);
+      response = await this.request<TData>(this.resolveNextPageUrl(response.links.next));
       if (Array.isArray(response.data)) {
         allData.push(...response.data);
       }
@@ -69,6 +67,49 @@ export class BaseAPIClient {
     }
 
     return allData;
+  }
+
+  /**
+   * Find the first matching item across a paginated list endpoint.
+   */
+  protected async findInList<TData>(
+    path: string,
+    matches: (item: TData) => boolean,
+    params?: Record<string, string>,
+    maxItems?: number,
+  ): Promise<TData | undefined> {
+    let scannedItems = 0;
+    let response = await this.get<TData>(path, params);
+
+    while (true) {
+      if (!Array.isArray(response.data)) {
+        if (!maxItems || scannedItems < maxItems) {
+          return matches(response.data) ? response.data : undefined;
+        }
+
+        return undefined;
+      }
+
+      for (const item of response.data) {
+        scannedItems += 1;
+
+        if (matches(item)) {
+          return item;
+        }
+
+        if (maxItems && scannedItems >= maxItems) {
+          return undefined;
+        }
+      }
+
+      if (!response.links?.next) {
+        return undefined;
+      }
+
+      response = await this.request<TData>(
+        this.resolveNextPageUrl(response.links.next),
+      );
+    }
   }
 
   protected async patch<TData, TBody>(
@@ -141,5 +182,18 @@ export class BaseAPIClient {
     }
 
     return payload as APIResponse<TData, TIncluded>;
+  }
+
+  private resolveNextPageUrl(url: string): string {
+    const nextUrl = new URL(url);
+    const baseOrigin = new URL(this.baseUrl).origin;
+
+    if (nextUrl.origin !== baseOrigin) {
+      throw new Error(
+        `Unexpected pagination origin: ${nextUrl.origin}. Expected ${baseOrigin}.`,
+      );
+    }
+
+    return nextUrl.toString();
   }
 }
