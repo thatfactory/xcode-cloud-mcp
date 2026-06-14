@@ -39,10 +39,12 @@ export class BaseAPIClient {
   /**
    * Fetch all pages of a paginated list endpoint.
    * Follows `links.next` until no more pages are available.
+   * If `maxItems` is provided, stops paginating once enough items are collected.
    */
   protected async listAll<TData>(
     path: string,
     params?: Record<string, string>,
+    maxItems?: number,
   ): Promise<TData[]> {
     const allData: TData[] = [];
 
@@ -53,13 +55,17 @@ export class BaseAPIClient {
       return [response.data];
     }
 
-    while (response.links?.next) {
+    while (response.links?.next && (!maxItems || allData.length < maxItems)) {
       // The next URL is a full absolute URL from Apple's API
       // Use request() directly since the URL is already absolute
       response = await this.request<TData>(response.links.next);
       if (Array.isArray(response.data)) {
         allData.push(...response.data);
       }
+    }
+
+    if (maxItems && allData.length > maxItems) {
+      return allData.slice(0, maxItems);
     }
 
     return allData;

@@ -65,7 +65,7 @@ export async function resolveBuildLocator(
   }
 
   const buildRuns = sortBuildRuns(
-    await client.builds.listForWorkflow(locator.workflowId!),
+    await client.builds.listForWorkflow(locator.workflowId!, 50),
   );
 
   if (locator.buildNumber !== undefined) {

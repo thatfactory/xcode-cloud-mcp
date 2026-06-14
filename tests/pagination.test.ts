@@ -34,8 +34,8 @@ class TestableClient extends BaseAPIClient {
     return response;
   }
 
-  public async testListAll(path: string, params?: Record<string, string>): Promise<unknown[]> {
-    return this.listAll(path, params);
+  public async testListAll(path: string, params?: Record<string, string>, maxItems?: number): Promise<unknown[]> {
+    return this.listAll(path, params, maxItems);
   }
 }
 
@@ -96,6 +96,51 @@ test('listAll returns empty array when first page has empty data', async () => {
   const result = await client.testListAll('/v1/test');
 
   assert.equal(result.length, 0);
+});
+
+test('listAll respects maxItems limit and stops pagination early', async () => {
+  const client = new TestableClient([
+    {
+      data: [{ id: '1' }, { id: '2' }, { id: '3' }],
+      links: {
+        self: 'https://api.appstoreconnect.apple.com/v1/test?limit=200',
+        next: 'https://api.appstoreconnect.apple.com/v1/test?cursor=page2&limit=200',
+      },
+    },
+    {
+      data: [{ id: '4' }, { id: '5' }],
+      links: {
+        self: 'https://api.appstoreconnect.apple.com/v1/test?cursor=page2&limit=200',
+        next: 'https://api.appstoreconnect.apple.com/v1/test?cursor=page3&limit=200',
+      },
+    },
+    {
+      data: [{ id: '6' }],
+      links: { self: 'https://api.appstoreconnect.apple.com/v1/test?cursor=page3&limit=200' },
+    },
+  ]);
+
+  // Request only 4 items — should stop after page 2 (3+2=5 >= 4)
+  const result = await client.testListAll('/v1/test', undefined, 4);
+
+  assert.equal(result.length, 4);
+  assert.deepEqual(
+    result.map((item) => (item as { id: string }).id),
+    ['1', '2', '3', '4'],
+  );
+});
+
+test('listAll with maxItems larger than available items returns all items', async () => {
+  const client = new TestableClient([
+    {
+      data: [{ id: '1' }, { id: '2' }],
+      links: { self: 'https://api.appstoreconnect.apple.com/v1/test' },
+    },
+  ]);
+
+  const result = await client.testListAll('/v1/test', undefined, 100);
+
+  assert.equal(result.length, 2);
 });
 
 test('listAll handles two pages correctly', async () => {
