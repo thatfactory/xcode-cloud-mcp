@@ -16,14 +16,12 @@ export function registerDiscoveryTools(
     'list_products',
     {
       description:
-        'List Xcode Cloud products available to the configured App Store Connect account.',
-      inputSchema: {
-        limit: z.number().int().positive().max(200).optional(),
-      },
+        'List Xcode Cloud products available to the configured App Store Connect account. Automatically paginates through all results.',
+      inputSchema: {},
     },
-    async ({ limit }: { limit?: number }) => {
+    async () => {
       try {
-        const products = await client.products.list(limit);
+        const products = await client.products.list();
 
         return jsonResponse({
           products: products.map((product) => ({
@@ -42,17 +40,15 @@ export function registerDiscoveryTools(
   server.registerTool(
     'list_workflows',
     {
-      description: 'List workflows for a given Xcode Cloud product.',
+      description: 'List workflows for a given Xcode Cloud product. Automatically paginates through all results.',
       inputSchema: {
         productId: z.string(),
-        limit: z.number().int().positive().max(200).optional(),
       },
     },
-    async ({ productId, limit }: { productId: string; limit?: number }) => {
+    async ({ productId }: { productId: string }) => {
       try {
         const workflows = await client.workflows.listForProduct(
           parseIdentifier(productId, 'product'),
-          limit,
         );
 
         return jsonResponse({

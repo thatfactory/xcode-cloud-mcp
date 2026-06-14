@@ -22,21 +22,21 @@ export function registerBuildRunTools(
     'list_build_runs',
     {
       description:
-        'List recent build runs for a workflow, optionally filtered by outcome.',
+        'List recent build runs for a workflow, optionally filtered by outcome. Automatically paginates through build runs. Use limit to cap the number of results returned.',
       inputSchema: {
         workflowId: z.string(),
-        limit: z.number().int().positive().max(200).optional(),
         status: z.enum(['all', 'failed', 'pending', 'running', 'succeeded']).optional(),
+        limit: z.number().int().min(1).max(500).optional().describe('Maximum number of build runs to return. Defaults to 20 if not specified.'),
       },
     },
     async ({
       workflowId,
-      limit,
       status,
+      limit,
     }: {
       workflowId: string;
-      limit?: number;
       status?: BuildRunStatusFilter;
+      limit?: number;
     }) => {
       try {
         const buildRuns = sortBuildRuns(
