@@ -7,6 +7,10 @@ on:
       - published
   workflow_dispatch:
 
+permissions:
+  id-token: write
+  contents: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.release.tag_name || github.ref }}
   cancel-in-progress: true
@@ -14,9 +18,7 @@ concurrency:
 jobs:
   publish:
     name: Publish Package
-    runs-on: [self-hosted, macOS]
-    permissions:
-      contents: read
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v6
@@ -25,11 +27,11 @@ jobs:
           ref: ${{ github.event.release.tag_name || github.ref }}
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: 22
-          cache: npm
+          node-version: 24
           registry-url: https://registry.npmjs.org
+          package-manager-cache: false
 
       - name: Install Dependencies
         run: npm ci
@@ -50,5 +52,3 @@ jobs:
 
       - name: Publish Package
         run: npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
