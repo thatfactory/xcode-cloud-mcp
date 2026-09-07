@@ -1,6 +1,6 @@
 {
   "name": "@thatfactory/xcode-cloud-mcp",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "Minimal MCP server for discovering Xcode Cloud workflows and retrieving build logs, issues, and test artifacts.",
   "license": "MIT",
   "type": "module",
@@ -32,5 +32,9 @@
     "@types/node": "^24.10.1",
     "tsx": "^4.21.0",
     "typescript": "^6.0.2"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/thatfactory/xcode-cloud-mcp.git"
   }
 }
