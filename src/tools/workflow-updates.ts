@@ -8,11 +8,20 @@ import { formatWorkflowDetailsResponse } from '../utils/workflow-details.js';
 
 const conditionSchema = z.record(z.string(), z.unknown()).nullable();
 
+const audienceSchema = z.enum(['INTERNAL_ONLY', 'APP_STORE_ELIGIBLE']);
+
+const releaseCandidateSchema = z.object({
+  workflowId: z.string(),
+  scheme: z.string().trim().min(1),
+  branch: z.string().trim().min(1),
+  buildDistributionAudience: audienceSchema,
+}).strict();
+
 const actionSchema = z.object({
   name: z.string(),
   actionType: z.string(),
   destination: z.string().nullable().optional(),
-  buildDistributionAudience: z.string().nullable().optional(),
+  buildDistributionAudience: audienceSchema.nullable().optional(),
   testConfiguration: z
     .object({
       kind: z.string().nullable().optional(),
@@ -36,6 +45,52 @@ export function registerWorkflowUpdateTools(
   server: McpServer,
   client: AppStoreConnectClient,
 ): void {
+  server.registerTool(
+    'configure_manual_release_candidate',
+    {
+      description:
+        'Replace all actions with one macOS archive and all start conditions with manual builds from one exact branch. Requires TestFlight Deployment Preparation. Preserves enabled state. Does not configure tester-group post-actions; use Xcode or App Store Connect for those.',
+      inputSchema: releaseCandidateSchema.shape,
+    },
+    async (arguments_) => {
+      try {
+        const { workflowId, scheme, branch, buildDistributionAudience } =
+          releaseCandidateSchema.parse(arguments_);
+        const workflowIdentifier = parseIdentifier(workflowId, 'workflow');
+        await client.workflows.updateById(workflowIdentifier, {
+          branchStartCondition: null,
+          pullRequestStartCondition: null,
+          scheduledStartCondition: null,
+          tagStartCondition: null,
+          manualPullRequestStartCondition: null,
+          manualTagStartCondition: null,
+          manualBranchStartCondition: {
+            source: {
+              isAllMatch: false,
+              patterns: [{ pattern: branch, isPrefix: false }],
+            },
+          },
+          actions: [{
+            name: 'Release Candidate',
+            actionType: 'ARCHIVE',
+            platform: 'MACOS',
+            destination: 'ANY_MAC',
+            scheme,
+            buildDistributionAudience,
+            isRequiredToPass: true,
+          }],
+        });
+        const updated = await client.workflows.getById(workflowIdentifier);
+        return jsonResponse({
+          operation: { applied: true, type: 'configure_manual_release_candidate' },
+          ...formatWorkflowDetailsResponse(updated.workflow, updated.included),
+        });
+      } catch (error) {
+        return errorResponse(error);
+      }
+    },
+  );
+
   server.registerTool(
     'set_workflow_enabled',
     {
@@ -247,7 +302,7 @@ export function registerWorkflowUpdateTools(
         const workflowIdentifier = parseIdentifier(workflowId, 'workflow');
         await client.workflows.updateActions(
           workflowIdentifier,
-          actions.map(normalizeAction),
+          z.array(actionSchema).parse(actions).map(normalizeAction),
         );
         const updated = await client.workflows.getById(workflowIdentifier);
 

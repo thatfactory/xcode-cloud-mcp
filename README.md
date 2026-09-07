@@ -88,6 +88,7 @@ codex mcp add xcode-cloud \
 - `update_workflow_general(workflowId, name?, description?, clean?)`
 - `update_workflow_start_conditions(workflowId, branchStartCondition?, manualBranchStartCondition?, pullRequestStartCondition?, manualPullRequestStartCondition?, scheduledStartCondition?, tagStartCondition?, manualTagStartCondition?)`
 - `update_workflow_actions(workflowId, actions)`
+- `configure_manual_release_candidate(workflowId, scheme, branch, buildDistributionAudience)`
 - `get_build_issues(buildRunId? workflowId? buildNumber? buildSelector?)`
 - `get_build_logs(buildRunId? workflowId? buildNumber? buildSelector?, maxCharacters?)`
 - `materialize_build_logs(buildRunId? workflowId? buildNumber? buildSelector?)`
@@ -174,7 +175,7 @@ Notes:
 
 - `environment` includes repository, `xcodeVersion`, and `macOsVersion` when App Store Connect returns them.
 - `actions` includes action type, scheme, platform, destination, required-to-pass state, and test-plan details when present.
-- `postActions` is currently returned as an empty array with a note because the App Store Connect workflow payload does not expose separate post-actions in the observed API response.
+- `postActions` is currently returned as an empty array with a note because Apple does not expose workflow post-actions in its public API. This does not mean no post-actions are configured; `testFlightDistribution` reports `UNSUPPORTED_BY_APPLE_API` and an actionable next step.
 
 ## Workflow Update Behavior
 
@@ -210,3 +211,30 @@ Build the package:
 ```bash
 npm run build
 ```
+
+
+### Manual TestFlight release candidates
+
+`configure_manual_release_candidate` converts an existing workflow to one macOS archive action (`ARCHIVE`, `MACOS`, `ANY_MAC`) with manual starts from an exact branch. It replaces the entire action list and all seven start conditions in one PATCH, clearing automatic branch, pull-request, tag, and scheduled starts plus manual tag and pull-request starts. Fetch `get_workflow_details` first if you need to retain the original configuration. The preset preserves the workflow's enabled state, name, environment, and clean-build setting; enable a disabled workflow separately when ready.
+
+```json
+{
+  "workflowId": "abc123",
+  "scheme": "Headroom",
+  "branch": "main",
+  "buildDistributionAudience": "APP_STORE_ELIGIBLE"
+}
+```
+
+The audience is required and cannot be null in this preset:
+
+- `APP_STORE_ELIGIBLE`: Deployment Preparation = TestFlight and App Store.
+- `INTERNAL_ONLY`: Deployment Preparation = TestFlight internal testing only.
+
+The general `update_workflow_actions` tool accepts only these two audience values or null/omission (Deployment Preparation = None). Use the preset when requesting a TestFlight release candidate: null/omission is rejected before any API mutation. Workflow details retain the raw `buildDistributionAudience` and add the human-readable `deploymentPreparation` value for each action.
+
+Creating an archive, making it eligible for TestFlight, and assigning its processed build to tester groups are separate steps. This preset configures eligibility; it does not start a build, guarantee successful upload/processing, or assign testers. To distribute automatically, edit the workflow in Xcode or App Store Connect, add a TestFlight Internal Testing post-action, and select the internal group.
+
+Apple's [OpenAPI specification](https://developer.apple.com/sample-code/app-store-connect/app-store-connect-openapi-specification.zip), version 4.4.1, inspected on 2026-09-07, exposes no post-action field or relationship in `CiWorkflow`, `CiWorkflowCreateRequest`, or `CiWorkflowUpdateRequest`, and no workflow post-action endpoint. Consequently, workflow responses explicitly report `testFlightDistribution.status: "UNSUPPORTED_BY_APPLE_API"` and group assignment as `UNKNOWN`; the legacy empty `postActions` array is not evidence that no post-actions exist. See Apple's [BuildAudienceType](https://developer.apple.com/documentation/appstoreconnectapi/buildaudiencetype) and [TestFlight distribution guide](https://developer.apple.com/documentation/xcode/distributing-your-xcode-cloud-builds-through-testflight).
+
+A separate build-start/wait/processing/beta-group orchestration could use the TestFlight API, but is outside this server's current scope and would not be a native Xcode Cloud post-action.

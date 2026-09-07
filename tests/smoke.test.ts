@@ -33,6 +33,7 @@ test('server starts over stdio and exposes the expected tools', async () => {
 
   assert.deepEqual(toolNames, [
     'cleanup_saved_logs',
+    'configure_manual_release_candidate',
     'get_build_issues',
     'get_build_logs',
     'get_failed_tests',
@@ -48,6 +49,17 @@ test('server starts over stdio and exposes the expected tools', async () => {
     'update_workflow_general',
     'update_workflow_start_conditions',
   ]);
+
+  const invalidPreset = await client.callTool({
+    name: 'configure_manual_release_candidate',
+    arguments: { workflowId: 'workflow-1', scheme: 'App', branch: 'main', buildDistributionAudience: null },
+  });
+  assert.equal(invalidPreset.isError, true);
+  const invalidAction = await client.callTool({
+    name: 'update_workflow_actions',
+    arguments: { workflowId: 'workflow-1', actions: [{ name: 'Archive', actionType: 'ARCHIVE', buildDistributionAudience: 'TYPO' }] },
+  });
+  assert.equal(invalidAction.isError, true);
 
   await client.close();
 });

@@ -89,9 +89,11 @@ export interface CiWorkflow {
 /**
  * Xcode Cloud workflow action.
  */
+export type BuildAudienceType = 'INTERNAL_ONLY' | 'APP_STORE_ELIGIBLE';
+
 export interface CiWorkflowAction {
   actionType: string;
-  buildDistributionAudience?: string | null;
+  buildDistributionAudience?: BuildAudienceType | null;
   destination?: string | null;
   isRequiredToPass?: boolean | null;
   name: string;
