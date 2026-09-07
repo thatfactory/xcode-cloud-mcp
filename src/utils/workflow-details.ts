@@ -84,8 +84,13 @@ export function formatWorkflowDetailsResponse(
       },
       actions: actions.map(formatWorkflowAction),
       postActions: [],
+      testFlightDistribution: {
+        status: 'UNSUPPORTED_BY_APPLE_API',
+        automaticTesterGroupAssignment: 'UNKNOWN',
+        nextAction: 'In Xcode or App Store Connect, edit the workflow and add a TestFlight Internal Testing post-action, then select the internal tester group. Archive eligibility alone does not assign builds to testers.',
+      },
       postActionsNote:
-        'The App Store Connect workflow payload did not expose separate post-actions, so this field is empty unless Apple adds that data.',
+        'Post-actions are not exposed by Apple API; the empty list does not mean none are configured. Configure a TestFlight internal-group post-action in Xcode or App Store Connect.',
     },
   };
 }
@@ -113,6 +118,12 @@ function formatWorkflowAction(action: CiWorkflowAction) {
     scheme: action.scheme ?? null,
     destination: action.destination ?? null,
     buildDistributionAudience: action.buildDistributionAudience ?? null,
+    deploymentPreparation:
+      action.buildDistributionAudience === 'INTERNAL_ONLY'
+        ? 'TestFlight internal testing only'
+        : action.buildDistributionAudience === 'APP_STORE_ELIGIBLE'
+          ? 'TestFlight and App Store'
+          : action.buildDistributionAudience == null ? 'None' : 'Unknown',
     isRequiredToPass: action.isRequiredToPass ?? null,
     testConfiguration: action.testConfiguration
       ? {
