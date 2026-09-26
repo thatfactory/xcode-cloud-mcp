@@ -189,6 +189,48 @@ export interface CiBuildRun {
   };
 }
 
+interface ResourceIdentifier<TType extends string> {
+  type: TType;
+  id: string;
+}
+
+/**
+ * Options for creating one Xcode Cloud build run.
+ */
+export interface CiBuildRunStartOptions {
+  workflowId: string;
+  clean?: boolean;
+  sourceBranchOrTagId?: string;
+  pullRequestId?: string;
+  buildRunId?: string;
+}
+
+/**
+ * App Store Connect request envelope for starting one Xcode Cloud build run.
+ */
+export interface CiBuildRunCreateRequest {
+  data: {
+    type: 'ciBuildRuns';
+    attributes: {
+      clean?: boolean;
+    };
+    relationships: {
+      workflow: {
+        data: ResourceIdentifier<'ciWorkflows'>;
+      };
+      sourceBranchOrTag?: {
+        data: ResourceIdentifier<'scmGitReferences'>;
+      };
+      pullRequest?: {
+        data: ResourceIdentifier<'scmPullRequests'>;
+      };
+      buildRun?: {
+        data: ResourceIdentifier<'ciBuildRuns'>;
+      };
+    };
+  };
+}
+
 /**
  * Xcode Cloud build action.
  */

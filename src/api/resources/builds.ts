@@ -1,11 +1,76 @@
 import { BaseAPIClient } from '../base-client.js';
-import type { CiBuildAction, CiBuildRun } from '../types.js';
+import type {
+  CiBuildAction,
+  CiBuildRun,
+  CiBuildRunCreateRequest,
+  CiBuildRunStartOptions,
+} from '../types.js';
 
 /**
  * Build run endpoints.
  */
 export class BuildsClient extends BaseAPIClient {
   static readonly buildLocatorScanLimit = 2000;
+
+  /**
+   * Start exactly one Xcode Cloud build run.
+   */
+  async start(options: CiBuildRunStartOptions): Promise<CiBuildRun> {
+    const attributes: CiBuildRunCreateRequest['data']['attributes'] = {};
+    if (options.clean !== undefined) {
+      attributes.clean = options.clean;
+    }
+
+    const relationships: CiBuildRunCreateRequest['data']['relationships'] = {
+      workflow: {
+        data: {
+          type: 'ciWorkflows',
+          id: options.workflowId,
+        },
+      },
+    };
+
+    if (options.sourceBranchOrTagId !== undefined) {
+      relationships.sourceBranchOrTag = {
+        data: {
+          type: 'scmGitReferences',
+          id: options.sourceBranchOrTagId,
+        },
+      };
+    }
+
+    if (options.pullRequestId !== undefined) {
+      relationships.pullRequest = {
+        data: {
+          type: 'scmPullRequests',
+          id: options.pullRequestId,
+        },
+      };
+    }
+
+    if (options.buildRunId !== undefined) {
+      relationships.buildRun = {
+        data: {
+          type: 'ciBuildRuns',
+          id: options.buildRunId,
+        },
+      };
+    }
+
+    const request: CiBuildRunCreateRequest = {
+      data: {
+        type: 'ciBuildRuns',
+        attributes,
+        relationships,
+      },
+    };
+    const response = await this.post<CiBuildRun, CiBuildRunCreateRequest>(
+      '/v1/ciBuildRuns',
+      request,
+    );
+
+    return response.data;
+  }
 
   /**
    * Get a build run by id.

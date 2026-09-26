@@ -132,6 +132,26 @@ export class BaseAPIClient {
     });
   }
 
+  protected async post<TData, TBody>(
+    path: string,
+    body: TBody,
+  ): Promise<APIResponse<TData>>;
+  protected async post<TData, TBody, TIncluded>(
+    path: string,
+    body: TBody,
+  ): Promise<APIResponse<TData, TIncluded>>;
+  protected async post<TData, TBody, TIncluded>(
+    path: string,
+    body: TBody,
+  ): Promise<APIResponse<TData, TIncluded>> {
+    const url = new URL(path, this.baseUrl);
+
+    return this.request<TData, TIncluded>(url.toString(), {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+  }
+
   protected async download(url: string): Promise<Uint8Array> {
     const response = await fetch(url, {
       headers: {

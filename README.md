@@ -9,7 +9,7 @@
 
 # xcode-cloud-mcp
 
-Minimal MCP server for discovering Xcode Cloud products, inspecting and editing workflows, monitoring build runs, and retrieving build issues, logs, test summaries, and UI test artifacts through the App Store Connect API.
+MCP server for discovering Xcode Cloud products, inspecting and editing workflows, starting and monitoring build runs, and retrieving build issues, logs, test summaries, and UI test artifacts through the App Store Connect API.
 
 ## Features
 
@@ -19,6 +19,7 @@ Minimal MCP server for discovering Xcode Cloud products, inspecting and editing 
 | Discover workflows | `list_workflows` | "List the workflows for product `def456`." | `Feature Branch`, `description`, `isEnabled: true`, `containerFilePath: Chauffeur.xcodeproj` |
 | Inspect workflow configuration | `get_workflow_details` | "Show me the full workflow details for `abc123`, including environment and actions." | `general`, `environment`, `startConditions`, `actions`, `postActions` |
 | Monitor running or recent builds | `list_build_runs` | "Show me the running builds for workflow `abc123` so I can monitor them." | `number: 93`, `executionProgress: RUNNING`, `completionStatus: null`, `startedDate: ...` |
+| Start an Xcode Cloud build | `start_build` | "Start one build for workflow `abc123`." | newly created build-run ID, number, and execution state |
 | Enable or disable a workflow | `set_workflow_enabled` | "Disable workflow `abc123` while we are testing new settings." | `operation.type: set_workflow_enabled`, `workflow.general.isEnabled: false` |
 | Update name, description, or clean mode | `update_workflow_general` | "Rename workflow `abc123` to `Feature Branch v2` and adjust its description." | `changedFields: [name, description]`, updated `workflow.general` |
 | Update start conditions explicitly | `update_workflow_start_conditions` | "Change workflow `abc123` so pull-request builds no longer auto-cancel." | updated `workflow.startConditions.pullRequest.autoCancel: false` |
@@ -36,6 +37,14 @@ Build lookup is workflow-scoped. Retrieval tools accept a direct `buildRunId`, o
 `list_products` and `list_workflows` automatically paginate through all results.
 
 `list_build_runs` supports `status: "all" | "failed" | "succeeded" | "running" | "pending"` and an optional `limit`, which defaults to `20`, so agents can poll active workflows without post-processing every run locally or inflating MCP response size.
+
+## Build Start Behavior
+
+`start_build` starts exactly one build run through Apple's public `POST /v1/ciBuildRuns` endpoint. `workflowId` is required. The optional `sourceBranchOrTagId` and `pullRequestId` values are App Store Connect resource IDs, not branch names, tag names, or pull-request numbers; `buildRunId` may be a bare resource ID or an `xcode-cloud://build-run/...` URI. The optional `clean` value applies only to the new run and does not modify the workflow.
+
+The operation is externally side-effecting and non-idempotent: repeating the same invocation can create another build. The server sends one POST and does not automatically retry an ambiguous failure; inspect `list_build_runs` before deciding whether to try again.
+
+Apple's public App Store Connect API does not expose an operation for canceling an individual Xcode Cloud build run. This server therefore provides no cancellation tool and does not disable or otherwise mutate a workflow as a cancellation surrogate.
 
 ## Requirements
 
@@ -84,6 +93,7 @@ codex mcp add xcode-cloud \
 - `list_workflows(productId)`
 - `get_workflow_details(workflowId)`
 - `list_build_runs(workflowId, limit?, status?)`
+- `start_build(workflowId, clean?, sourceBranchOrTagId?, pullRequestId?, buildRunId?)`
 - `set_workflow_enabled(workflowId, enabled)`
 - `update_workflow_general(workflowId, name?, description?, clean?)`
 - `update_workflow_start_conditions(workflowId, branchStartCondition?, manualBranchStartCondition?, pullRequestStartCondition?, manualPullRequestStartCondition?, scheduledStartCondition?, tagStartCondition?, manualTagStartCondition?)`
@@ -233,8 +243,8 @@ The audience is required and cannot be null in this preset:
 
 The general `update_workflow_actions` tool accepts only these two audience values or null/omission (Deployment Preparation = None). Use the preset when requesting a TestFlight release candidate: null/omission is rejected before any API mutation. Workflow details retain the raw `buildDistributionAudience` and add the human-readable `deploymentPreparation` value for each action.
 
-Creating an archive, making it eligible for TestFlight, and assigning its processed build to tester groups are separate steps. This preset configures eligibility; it does not start a build, guarantee successful upload/processing, or assign testers. To distribute automatically, edit the workflow in Xcode or App Store Connect, add a TestFlight Internal Testing post-action, and select the internal group.
+Creating an archive, making it eligible for TestFlight, and assigning its processed build to tester groups are separate steps. This preset configures eligibility; it does not itself start a build, guarantee successful upload/processing, or assign testers. Call `start_build` explicitly to create a build run. To distribute automatically, edit the workflow in Xcode or App Store Connect, add a TestFlight Internal Testing post-action, and select the internal group.
 
 Apple's [OpenAPI specification](https://developer.apple.com/sample-code/app-store-connect/app-store-connect-openapi-specification.zip), version 4.4.1, inspected on 2026-09-07, exposes no post-action field or relationship in `CiWorkflow`, `CiWorkflowCreateRequest`, or `CiWorkflowUpdateRequest`, and no workflow post-action endpoint. Consequently, workflow responses explicitly report `testFlightDistribution.status: "UNSUPPORTED_BY_APPLE_API"` and group assignment as `UNKNOWN`; the legacy empty `postActions` array is not evidence that no post-actions exist. See Apple's [BuildAudienceType](https://developer.apple.com/documentation/appstoreconnectapi/buildaudiencetype) and [TestFlight distribution guide](https://developer.apple.com/documentation/xcode/distributing-your-xcode-cloud-builds-through-testflight).
 
-A separate build-start/wait/processing/beta-group orchestration could use the TestFlight API, but is outside this server's current scope and would not be a native Xcode Cloud post-action.
+Waiting for completion, TestFlight processing, beta-group assignment, and broader release orchestration remain outside this server's current scope and would not be native Xcode Cloud post-actions.
