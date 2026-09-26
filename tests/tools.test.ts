@@ -27,13 +27,15 @@ type ToolHandler = (
 
 test('registered tools expose product, workflow, and build data', async () => {
   const registry = new Map<string, ToolHandler>();
+  const toolConfigs = new Map<string, any>();
   const server = {
     registerTool: (
       name: string,
-      _config: unknown,
+      config: unknown,
       callback: ToolHandler,
     ): void => {
       registry.set(name, callback);
+      toolConfigs.set(name, config);
     },
   };
 
@@ -236,6 +238,7 @@ test('registered tools expose product, workflow, and build data', async () => {
   };
 
   let currentWorkflow: CiWorkflow = structuredClone(workflow);
+  let startOptions: Record<string, unknown> | undefined;
 
   const client = {
     products: {
@@ -302,6 +305,10 @@ test('registered tools expose product, workflow, and build data', async () => {
       },
     },
     builds: {
+      start: async (options: Record<string, unknown>) => {
+        startOptions = options;
+        return pendingBuildRun;
+      },
       getById: async () => buildRun,
       listForWorkflow: async () => [buildRun, runningBuildRun, pendingBuildRun],
       getActions: async () => [buildAction],
@@ -328,6 +335,7 @@ test('registered tools expose product, workflow, and build data', async () => {
   registerWorkflowUpdateTools(server as never, client);
 
   const listProducts = registry.get('list_products');
+  const startBuild = registry.get('start_build');
   const listBuildRuns = registry.get('list_build_runs');
   const getWorkflowDetails = registry.get('get_workflow_details');
   const setWorkflowEnabled = registry.get('set_workflow_enabled');
@@ -343,6 +351,7 @@ test('registered tools expose product, workflow, and build data', async () => {
   const cleanupSavedLogs = registry.get('cleanup_saved_logs');
 
   assert.ok(listProducts);
+  assert.ok(startBuild);
   assert.ok(listBuildRuns);
   assert.ok(getWorkflowDetails);
   assert.ok(setWorkflowEnabled);
@@ -356,6 +365,15 @@ test('registered tools expose product, workflow, and build data', async () => {
   assert.ok(cleanupSavedLogs);
 
   const productsPayload = parsePayload(await listProducts!({}));
+  const startedBuildPayload = parsePayload(
+    await startBuild!({
+      workflowId: 'xcode-cloud://workflow/workflow-1',
+      clean: false,
+      sourceBranchOrTagId: 'reference-1',
+      pullRequestId: 'pull-request-1',
+      buildRunId: 'xcode-cloud://build-run/build-1',
+    }),
+  );
   const buildsPayload = parsePayload(
     await listBuildRuns!({ workflowId: 'workflow-1' }),
   );
@@ -428,6 +446,25 @@ test('registered tools expose product, workflow, and build data', async () => {
   const cleanupPayload = parsePayload(await cleanupSavedLogs!({ maxAgeHours: 1 }));
 
   assert.equal(productsPayload.products[0].id, 'product-1');
+  assert.deepEqual(startOptions, {
+    workflowId: 'workflow-1',
+    clean: false,
+    sourceBranchOrTagId: 'reference-1',
+    pullRequestId: 'pull-request-1',
+    buildRunId: 'build-1',
+  });
+  assert.equal(startedBuildPayload.operation.type, 'start_build');
+  assert.equal(startedBuildPayload.operation.applied, true);
+  assert.equal(startedBuildPayload.buildRun.id, 'build-3');
+  assert.equal(startedBuildPayload.buildRun.executionProgress, 'PENDING');
+  assert.deepEqual(toolConfigs.get('start_build')?.annotations, {
+    readOnlyHint: false,
+    idempotentHint: false,
+    openWorldHint: true,
+    destructiveHint: false,
+  });
+  assert.equal(registry.has('cancel_build'), false);
+  assert.equal(registry.has('cancel_build_run'), false);
   assert.equal(buildsPayload.buildRuns[0].number, 44);
   assert.equal(runningBuildsPayload.buildRuns.length, 1);
   assert.equal(runningBuildsPayload.buildRuns[0].executionProgress, 'RUNNING');

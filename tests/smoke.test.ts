@@ -45,6 +45,7 @@ test('server starts over stdio and exposes the expected tools', async () => {
     'list_workflows',
     'materialize_build_logs',
     'set_workflow_enabled',
+    'start_build',
     'update_workflow_actions',
     'update_workflow_general',
     'update_workflow_start_conditions',
@@ -60,6 +61,16 @@ test('server starts over stdio and exposes the expected tools', async () => {
     arguments: { workflowId: 'workflow-1', actions: [{ name: 'Archive', actionType: 'ARCHIVE', buildDistributionAudience: 'TYPO' }] },
   });
   assert.equal(invalidAction.isError, true);
+  const invalidStart = await client.callTool({
+    name: 'start_build',
+    arguments: { workflowId: '   ' },
+  });
+  assert.equal(invalidStart.isError, true);
+  const unexpectedStartInput = await client.callTool({
+    name: 'start_build',
+    arguments: { workflowId: 'workflow-1', unexpected: true },
+  });
+  assert.equal(unexpectedStartInput.isError, true);
 
   await client.close();
 });
