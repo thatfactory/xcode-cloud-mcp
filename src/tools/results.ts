@@ -176,7 +176,7 @@ function defaultIssueCounts() {
 function formatBuildRun(buildRun: Awaited<ReturnType<typeof resolveBuildLocator>>) {
   return {
     id: buildRun.id,
-    workflowId: buildRun.relationships?.workflow?.data.id,
+    workflowId: buildRun.relationships?.workflow?.data?.id,
     number: buildRun.attributes.number,
     executionProgress: buildRun.attributes.executionProgress,
     completionStatus: buildRun.attributes.completionStatus,

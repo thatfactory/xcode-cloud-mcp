@@ -23,7 +23,7 @@ export function createServer(): McpServer {
 
   const server = new McpServer({
     name: 'Xcode Cloud MCP',
-    version: '0.7.0',
+    version: '0.8.0',
   });
 
   registerDiscoveryTools(server, client);

@@ -33,7 +33,7 @@ export class BaseAPIClient {
       url.searchParams.set(key, value);
     }
 
-    return this.request<TData>(url.toString());
+    return this.request<TData, TIncluded>(url.toString());
   }
 
   /**
@@ -46,27 +46,40 @@ export class BaseAPIClient {
     params?: Record<string, string>,
     maxItems?: number,
   ): Promise<TData[]> {
-    const allData: TData[] = [];
+    return (await this.listAllWithIncluded<TData, never>(path, params, maxItems)).data;
+  }
 
-    let response = await this.get<TData>(path, params);
-    if (Array.isArray(response.data)) {
-      allData.push(...response.data);
-    } else {
-      return [response.data];
+  /** Collect primary and included resources, preserving whether the scan hit its bound. */
+  protected async listAllWithIncluded<TData, TIncluded>(
+    path: string,
+    params?: Record<string, string>,
+    maxItems?: number,
+  ): Promise<{ data: TData[]; included: TIncluded[]; hasMore: boolean }> {
+    const allData: TData[] = [];
+    const included: TIncluded[] = [];
+
+    let response = await this.get<TData[], TIncluded>(path, params);
+    if (!Array.isArray(response.data)) {
+      return { data: [response.data], included: response.included ?? [], hasMore: false };
     }
 
-    while (response.links?.next && (!maxItems || allData.length < maxItems)) {
-      response = await this.request<TData>(this.resolveNextPageUrl(response.links.next));
+    while (true) {
+      included.push(...(response.included ?? []));
       if (Array.isArray(response.data)) {
         allData.push(...response.data);
       }
-    }
 
-    if (maxItems && allData.length > maxItems) {
-      return allData.slice(0, maxItems);
-    }
+      const next = response.links?.next;
+      if (!next || (maxItems && allData.length >= maxItems)) {
+        return {
+          data: maxItems ? allData.slice(0, maxItems) : allData,
+          included,
+          hasMore: Boolean(next || (maxItems && allData.length > maxItems)),
+        };
+      }
 
-    return allData;
+      response = await this.request<TData[], TIncluded>(this.resolveNextPageUrl(next));
+    }
   }
 
   /**

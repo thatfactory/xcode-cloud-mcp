@@ -49,7 +49,7 @@ export function registerTestTools(
           buildRun: {
             id: buildRun.id,
             number: buildRun.attributes.number,
-            workflowId: buildRun.relationships?.workflow?.data.id,
+            workflowId: buildRun.relationships?.workflow?.data?.id,
             completionStatus: buildRun.attributes.completionStatus,
           },
           issueCounts: buildRun.attributes.issueCounts ?? {
@@ -97,7 +97,7 @@ export function registerTestTools(
           buildRun: {
             id: buildRun.id,
             number: buildRun.attributes.number,
-            workflowId: buildRun.relationships?.workflow?.data.id,
+            workflowId: buildRun.relationships?.workflow?.data?.id,
             completionStatus: buildRun.attributes.completionStatus,
           },
           savedLogsDirectory: storedLogs.directoryPath,
@@ -126,7 +126,7 @@ export function registerTestTools(
           buildRun: {
             id: buildRun.id,
             number: buildRun.attributes.number,
-            workflowId: buildRun.relationships?.workflow?.data.id,
+            workflowId: buildRun.relationships?.workflow?.data?.id,
           },
           screenshots: groupedArtifacts.screenshots.map(formatArtifact),
           videos: groupedArtifacts.videos.map(formatArtifact),

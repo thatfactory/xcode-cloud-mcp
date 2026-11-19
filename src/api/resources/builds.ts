@@ -1,10 +1,23 @@
 import { BaseAPIClient } from '../base-client.js';
 import type {
+  AppStoreBuild,
   CiBuildAction,
   CiBuildRun,
   CiBuildRunCreateRequest,
   CiBuildRunStartOptions,
+  CiWorkflow,
+  PrereleaseVersion,
+  ScmGitReference,
 } from '../types.js';
+
+type BuildIncludedResource = PrereleaseVersion | { type: 'apps'; id: string };
+
+const testFlightBuildFields = {
+  include: 'app,preReleaseVersion',
+  'fields[apps]': 'bundleId',
+  'fields[builds]': 'version,expired,processingState,buildAudienceType,app,preReleaseVersion',
+  'fields[preReleaseVersions]': 'platform,version',
+};
 
 /**
  * Build run endpoints.
@@ -78,6 +91,46 @@ export class BuildsClient extends BaseAPIClient {
   async getById(buildRunId: string): Promise<CiBuildRun> {
     const response = await this.get<CiBuildRun>(`/v1/ciBuildRuns/${buildRunId}`);
     return response.data;
+  }
+
+  /** Read the workflow and source linkage alongside the exact build run. */
+  async getWithProvenance(buildRunId: string) {
+    return this.get<CiBuildRun, CiWorkflow | ScmGitReference>(
+      `/v1/ciBuildRuns/${encodeURIComponent(buildRunId)}`,
+      { include: 'workflow,sourceBranchOrTag' },
+    );
+  }
+
+  async getGitReference(referenceId: string): Promise<ScmGitReference> {
+    const response = await this.get<ScmGitReference>(
+      `/v1/scmGitReferences/${encodeURIComponent(referenceId)}`,
+    );
+    return response.data;
+  }
+
+  /** Scan a bounded number of runs with their source references. */
+  async listWithProvenance(workflowId: string, scanLimit: number) {
+    return this.listAllWithIncluded<CiBuildRun, ScmGitReference>(
+      `/v1/ciWorkflows/${encodeURIComponent(workflowId)}/buildRuns`,
+      { include: 'sourceBranchOrTag', sort: '-number', limit: String(Math.min(scanLimit, 200)) },
+      scanLimit,
+    );
+  }
+
+  /** Read only the App Store Connect builds explicitly linked to this run. */
+  async listLinkedBuilds(buildRunId: string) {
+    return this.listAllWithIncluded<AppStoreBuild, BuildIncludedResource>(
+      `/v1/ciBuildRuns/${encodeURIComponent(buildRunId)}/builds`,
+      { ...testFlightBuildFields, limit: '200' },
+    );
+  }
+
+  /** Hydrate an exact linked build when the run endpoint omits build evidence. */
+  async getLinkedBuildDetails(buildId: string) {
+    return this.get<AppStoreBuild, BuildIncludedResource>(
+      `/v1/builds/${encodeURIComponent(buildId)}`,
+      testFlightBuildFields,
+    );
   }
 
   /**
