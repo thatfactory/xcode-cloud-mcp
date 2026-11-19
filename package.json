@@ -1,6 +1,6 @@
 {
   "name": "@thatfactory/xcode-cloud-mcp",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "MCP server for configuring Xcode Cloud workflows, starting builds, and retrieving build logs, issues, and test artifacts.",
   "license": "MIT",
   "type": "module",

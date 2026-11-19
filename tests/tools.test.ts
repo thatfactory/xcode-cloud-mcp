@@ -311,6 +311,11 @@ test('registered tools expose product, workflow, and build data', async () => {
       },
       getById: async () => buildRun,
       listForWorkflow: async () => [buildRun, runningBuildRun, pendingBuildRun],
+      listWithProvenance: async () => ({
+        data: [buildRun, runningBuildRun, pendingBuildRun],
+        included: [],
+        hasMore: false,
+      }),
       getActions: async () => [buildAction],
     },
     artifacts: {

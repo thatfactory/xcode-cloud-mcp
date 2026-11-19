@@ -19,6 +19,7 @@ MCP server for discovering Xcode Cloud products, inspecting and editing workflow
 | Discover workflows | `list_workflows` | "List the workflows for product `def456`." | `Feature Branch`, `description`, `isEnabled: true`, `containerFilePath: Chauffeur.xcodeproj` |
 | Inspect workflow configuration | `get_workflow_details` | "Show me the full workflow details for `abc123`, including environment and actions." | `general`, `environment`, `startConditions`, `actions`, `postActions` |
 | Monitor running or recent builds | `list_build_runs` | "Show me the running builds for workflow `abc123` so I can monitor them." | `number: 93`, `executionProgress: RUNNING`, `completionStatus: null`, `startedDate: ...` |
+| Resolve linked TestFlight build IDs | `get_build_run_testflight_builds` | "Verify this release run and find its iOS and tvOS builds for TestFlight." | verified run provenance and per-platform readiness |
 | Start an Xcode Cloud build | `start_build` | "Start one build for workflow `abc123`." | newly created build-run ID, number, and execution state |
 | Enable or disable a workflow | `set_workflow_enabled` | "Disable workflow `abc123` while we are testing new settings." | `operation.type: set_workflow_enabled`, `workflow.general.isEnabled: false` |
 | Update name, description, or clean mode | `update_workflow_general` | "Rename workflow `abc123` to `Feature Branch v2` and adjust its description." | `changedFields: [name, description]`, updated `workflow.general` |
@@ -36,7 +37,7 @@ Build lookup is workflow-scoped. Retrieval tools accept a direct `buildRunId`, o
 
 `list_products` and `list_workflows` automatically paginate through all results.
 
-`list_build_runs` supports `status: "all" | "failed" | "succeeded" | "running" | "pending"` and an optional `limit`, which defaults to `20`, so agents can poll active workflows without post-processing every run locally or inflating MCP response size.
+`list_build_runs` supports `status: "all" | "failed" | "succeeded" | "running" | "pending"` and an optional exact `sourceCommitSha` filter. The limit (default 20, maximum 500) bounds the runs scanned before filtering. Each result includes the full source commit SHA, canonical source ref and its resource ID when available, the PR flag, and the start reason. For a SHA lookup with no results, check `scan.hasMore` for older runs and `scan.unverifiedSourceCount` for scanned runs whose SHA was unavailable. If several runs match, use the intended exact run ID for the handoff.
 
 ## Build Start Behavior
 
@@ -92,7 +93,8 @@ codex mcp add xcode-cloud \
 - `list_products()`
 - `list_workflows(productId)`
 - `get_workflow_details(workflowId)`
-- `list_build_runs(workflowId, limit?, status?)`
+- `list_build_runs(workflowId, limit?, status?, sourceCommitSha?)`
+- `get_build_run_testflight_builds(buildRunId, workflowId, appId, platforms, expectedSourceRef?, expectedSourceCommitSha?)`
 - `start_build(workflowId, clean?, sourceBranchOrTagId?, pullRequestId?, buildRunId?)`
 - `set_workflow_enabled(workflowId, enabled)`
 - `update_workflow_general(workflowId, name?, description?, clean?)`
@@ -247,4 +249,14 @@ Creating an archive, making it eligible for TestFlight, and assigning its proces
 
 Apple's [OpenAPI specification](https://developer.apple.com/sample-code/app-store-connect/app-store-connect-openapi-specification.zip), version 4.4.1, inspected on 2026-09-07, exposes no post-action field or relationship in `CiWorkflow`, `CiWorkflowCreateRequest`, or `CiWorkflowUpdateRequest`, and no workflow post-action endpoint. Consequently, workflow responses explicitly report `testFlightDistribution.status: "UNSUPPORTED_BY_APPLE_API"` and group assignment as `UNKNOWN`; the legacy empty `postActions` array is not evidence that no post-actions exist. See Apple's [BuildAudienceType](https://developer.apple.com/documentation/appstoreconnectapi/buildaudiencetype) and [TestFlight distribution guide](https://developer.apple.com/documentation/xcode/distributing-your-xcode-cloud-builds-through-testflight).
 
-Waiting for completion, TestFlight processing, beta-group assignment, and broader release orchestration remain outside this server's current scope and would not be native Xcode Cloud post-actions.
+### Read-only TestFlight handoff
+
+Call `get_build_run_testflight_builds` with an exact Xcode Cloud run ID, its expected workflow ID, the App Store Connect app resource ID, and one or more distinct Apple platform values (`IOS`, `TV_OS`, `MAC_OS`, `VISION_OS`). Run and workflow IDs may also use their `xcode-cloud://` URI forms. For automated handoff, provide both `expectedSourceRef` (for example, `refs/heads/main`) and `expectedSourceCommitSha` (the full Git SHA). With those inputs the tool verifies the branch and revision and rejects pull-request runs.
+
+The tool verifies the run and workflow, reads the run's linked builds, and verifies each build against its App Store Connect app and prerelease version. When the run returns a build ID without its metadata, the tool reads that exact build ID for the missing evidence. The response includes run provenance and the following statuses.
+
+- `ready` means the run succeeded and each requested platform has exactly one verified, valid, unexpired, externally eligible build. Each platform includes `build.id`, marketing version, build number, processing state, audience, and expiration state.
+- `pending` means the run is still active, a requested platform has no linked build yet, or a relevant build is processing. Read again after the upload or processing progresses.
+- `blocked` reports per-platform reasons such as a failed or canceled run, app mismatch, internal-only or expired build, missing or unknown evidence, or ambiguous eligible builds. A run, workflow, or requested source mismatch produces an MCP error.
+
+A successful archive can precede upload and processing in App Store Connect. When the overall status is `ready`, pass the exact `build.id` values to [app-store-connect-mcp](https://github.com/thatfactory/app-store-connect-mcp) or another consumer that rechecks eligibility before TestFlight distribution. Beta review and group assignment are separate App Store Connect operations.

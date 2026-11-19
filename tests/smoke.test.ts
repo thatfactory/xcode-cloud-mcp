@@ -36,6 +36,7 @@ test('server starts over stdio and exposes the expected tools', async () => {
     'configure_manual_release_candidate',
     'get_build_issues',
     'get_build_logs',
+    'get_build_run_testflight_builds',
     'get_failed_tests',
     'get_test_artifacts',
     'get_test_results',
@@ -71,6 +72,31 @@ test('server starts over stdio and exposes the expected tools', async () => {
     arguments: { workflowId: 'workflow-1', unexpected: true },
   });
   assert.equal(unexpectedStartInput.isError, true);
+
+  const lookupTool = tools.tools.find((tool) => tool.name === 'get_build_run_testflight_builds');
+  assert.equal(lookupTool?.annotations?.readOnlyHint, true);
+  assert.equal(lookupTool?.outputSchema?.type, 'object');
+  const lookupArguments = {
+    buildRunId: 'run-1',
+    workflowId: 'workflow-1',
+    appId: 'app-1',
+    platforms: ['IOS', 'TV_OS'],
+  };
+  for (const invalidArguments of [
+    { ...lookupArguments, expectedSourceRef: 'refs/heads/main' },
+    { ...lookupArguments, expectedSourceCommitSha: 'deadbeef' },
+    { ...lookupArguments, expectedSourceCommitSha: 'a'.repeat(40) },
+    { ...lookupArguments, platforms: ['IOS', 'IOS'] },
+    { ...lookupArguments, platforms: ['TVOS'] },
+    { ...lookupArguments, platforms: [] },
+  ]) {
+    const invalidLookup = await client.callTool({
+      name: 'get_build_run_testflight_builds',
+      arguments: invalidArguments,
+    });
+    assert.equal(invalidLookup.isError, true);
+    assert.match(JSON.stringify(invalidLookup.content), /Input validation error/);
+  }
 
   await client.close();
 });

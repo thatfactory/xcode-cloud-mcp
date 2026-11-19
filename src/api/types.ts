@@ -171,27 +171,59 @@ export interface CiBuildRun {
     startedDate?: string;
     finishedDate?: string;
     executionProgress: 'PENDING' | 'RUNNING' | 'COMPLETE';
-    completionStatus?: 'SUCCEEDED' | 'FAILED' | 'ERRORED' | 'CANCELED';
+    completionStatus?: 'SUCCEEDED' | 'FAILED' | 'ERRORED' | 'CANCELED' | 'SKIPPED' | null;
     isPullRequestBuild: boolean;
     issueCounts?: CiIssueCounts;
+    startReason?: 'GIT_REF_CHANGE' | 'MANUAL' | 'MANUAL_REBUILD' | 'PULL_REQUEST_OPEN' | 'PULL_REQUEST_UPDATE' | 'SCHEDULE';
     sourceCommit?: {
       commitSha: string;
       message?: string;
     };
   };
   relationships?: {
-    workflow?: {
-      data: {
-        type: 'ciWorkflows';
-        id: string;
-      };
-    };
+    workflow?: ToOneRelationship<'ciWorkflows'>;
+    sourceBranchOrTag?: ToOneRelationship<'scmGitReferences'>;
+    pullRequest?: ToOneRelationship<'scmPullRequests'>;
   };
 }
 
 interface ResourceIdentifier<TType extends string> {
   type: TType;
   id: string;
+}
+
+interface ToOneRelationship<TType extends string> {
+  data?: ResourceIdentifier<TType> | null;
+}
+
+export interface ScmGitReference extends ResourceIdentifier<'scmGitReferences'> {
+  attributes?: {
+    canonicalName?: string;
+    kind?: 'BRANCH' | 'TAG';
+  };
+}
+
+export const buildPlatforms = ['IOS', 'MAC_OS', 'TV_OS', 'VISION_OS'] as const;
+export type BuildPlatform = (typeof buildPlatforms)[number];
+
+export interface PrereleaseVersion extends ResourceIdentifier<'preReleaseVersions'> {
+  attributes?: {
+    platform?: BuildPlatform;
+    version?: string;
+  };
+}
+
+export interface AppStoreBuild extends ResourceIdentifier<'builds'> {
+  attributes?: {
+    version?: string | null;
+    expired?: boolean | null;
+    processingState?: 'PROCESSING' | 'FAILED' | 'INVALID' | 'VALID' | null;
+    buildAudienceType?: BuildAudienceType | null;
+  };
+  relationships?: {
+    app?: ToOneRelationship<'apps'>;
+    preReleaseVersion?: ToOneRelationship<'preReleaseVersions'>;
+  };
 }
 
 /**
